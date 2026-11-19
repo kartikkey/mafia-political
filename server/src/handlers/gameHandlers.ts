@@ -66,9 +66,12 @@ export function registerGameHandlers({ io, socket, rooms }: HandlerContext) {
     const r = ref()
     if (!r) return ack(fail('Not in a room'))
     const { match } = r
+    const victim = match.players.get(String(p?.targetId ?? ''))
+    const wasWorking = !!victim?.openTask
     const body = match.eliminate(r.player.id, String(p?.targetId ?? ''))
     if (typeof body === 'string') return ack(fail(body))
     ack(ok(undefined))
+    if (wasWorking && victim) interacting(io, match, victim.id, victim.socketId, null)
     io.to(match.roomCode).emit('PLAYER_ELIMINATED', { body, livingCount: match.livingPlayers.length })
     sendCooldowns(io, match)
     if (!finishIfWon(io, match)) broadcastMatch(io, match)

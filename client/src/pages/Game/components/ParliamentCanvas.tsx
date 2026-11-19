@@ -117,14 +117,12 @@ export default function ParliamentCanvas(props: Props) {
       const me = p.players.find((x) => x.id === p.meId)
       const focus = (me && p.localPos.current) || me?.position || { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 }
 
-      // Camera: scale fits the whole map at zoom 1; follow + clamp to map edges.
+      // Camera: zoom 1 fits the whole map; zoomed in, the local player stays dead-centre
+      // (no edge clamp) so the corner HUD panels can never cover them.
       const fit = Math.min(canvas.width / MAP_WIDTH, canvas.height / MAP_HEIGHT)
       const scale = fit * p.zoom
-      const viewW = canvas.width / scale
-      const viewH = canvas.height / scale
-      const clamp = (v: number, view: number, size: number) => (view >= size ? size / 2 : Math.min(size - view / 2, Math.max(view / 2, v)))
-      const tx = clamp(focus.x, viewW, MAP_WIDTH)
-      const ty = clamp(focus.y, viewH, MAP_HEIGHT)
+      const tx = p.zoom > 1 ? focus.x : MAP_WIDTH / 2
+      const ty = p.zoom > 1 ? focus.y : MAP_HEIGHT / 2
       const snap = cam.scale !== scale
       cam.x = snap ? tx : cam.x + (tx - cam.x) * CAMERA_LERP
       cam.y = snap ? ty : cam.y + (ty - cam.y) * CAMERA_LERP
@@ -164,7 +162,7 @@ export default function ParliamentCanvas(props: Props) {
         g.fillStyle = 'rgba(0,0,0,0.35)'
         g.fillRect(pos.x - 9, pos.y + 9, 18, 4)
         drawSprite(g, a, pos.x - (SPRITE_W * PX) / 2, pos.y + 12 - SPRITE_H * PX, PX, pl.facing, mode, Math.floor(t / 250))
-        if (working) drawWorkBubble(g, pos.x + 16, pos.y - 30, Math.floor(t / 300))
+        if (working) drawWorkBubble(g, pos.x, pos.y - 50, Math.floor(t / 300))
         g.font = '16px VT323, monospace'
         g.textAlign = 'center'
         const mate = p.teammateIds.includes(pl.id)

@@ -20,7 +20,14 @@ Out of scope: Media Center, journalists/lobbyists, bribery, voice chat, multiple
   code-drawn A1–A8 sprites (idle/walk/interact/eliminated/meeting) and room tiles, P10 e2e/acceptance.cjs (Spec §13, 18/18 PASSED locally).
 - Unit tests: 48 (vitest). Typecheck + build clean.
 
+## Iteration 2 (2026-06)
+- Document Leak sabotage (F at an available station → offline 20s, own news + recovery news, one sabotage at a time, shared 30s cooldown, cleared by meetings).
+- Camera follow: canvas fills map area, player centred at 2× (Z / legend button cycles 2× → 1.4× → full map).
+- Interact animation + "..." bubble broadcast for every station use (PLAYER_INTERACTING / TASK_CLOSED) — identical for Deep State fake tasks.
+- Starting elimination grace period 12s (MATCH_SETTINGS.initialEliminationCooldownMs).
+- Tests: 51 unit; e2e/acceptance.cjs 18/18; e2e/t1-features2.cjs all PASS.
+
 ## Backlog
-- P1: initial elimination cooldown at match start (spec silent; kills possible at spawn), camera follow/zoom, map overlay (M).
-- P2: Document Leak sabotage, fake task animation for Deep State, rejoin after disconnect, voice chat.
+- P1: map overlay (M), server-time offset for countdowns (client clock skew).
+- P2: rejoin after disconnect, voice chat.
 - Deployment: Emergent deploy pipeline expects backend/frontend layout — Node server deploy unverified.

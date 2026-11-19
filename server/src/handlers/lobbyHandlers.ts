@@ -1,5 +1,5 @@
 /** Lobby + role assignment + disconnects. */
-import { broadcastMatch, endVoting, finishIfWon, wireMatch } from '../game/flow'
+import { broadcastMatch, endVoting, finishIfWon, interacting, wireMatch } from '../game/flow'
 import type { Match } from '../game/Match'
 import { sanitiseName } from '../utils/ids'
 import { fail, ok, type HandlerContext, type IO } from './types'
@@ -83,6 +83,7 @@ export function registerLobbyHandlers({ io, socket, rooms }: HandlerContext) {
     const { match } = res
     io.to(match.roomCode).emit('PLAYER_LEFT', { playerId: res.playerId })
     if (match.state === 'WAITING') return pushLobby(match)
+    if (match.state === 'PLAYING') interacting(io, match, res.playerId, socket.id, null)
     // Prompt 7: a mid-match disconnect no longer counts → re-check victory.
     if (finishIfWon(io, match)) return
     broadcastMatch(io, match)
