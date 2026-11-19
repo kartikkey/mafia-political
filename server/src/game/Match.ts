@@ -51,6 +51,7 @@ export interface ServerPlayer extends PublicPlayer {
   eliminationReadyAt: number
   openTask: OpenTask | null
   stats: { tasksCompleted: number; eliminations: number; meetingsAttended: number }
+  ejected?: boolean
 }
 
 export interface MeetingInfo {
@@ -158,6 +159,7 @@ export class Match {
       p.eliminationReadyAt = 0
       p.openTask = null
       p.stats = freshStats()
+      p.ejected = false
     })
 
     this.tasks = TASK_STATIONS.map((s) => ({
@@ -404,6 +406,7 @@ export class Match {
     if (ejectedPlayerId) {
       const ej = this.players.get(ejectedPlayerId)!
       ej.alive = false
+      ej.ejected = true
       ejectedFaction = ej.faction
     }
     this.lastTally = { counts, ejectedPlayerId, ejectedFaction }
@@ -449,7 +452,7 @@ export class Match {
   matchStats(): PlayerMatchStats[] {
     return [...this.players.values()]
       .filter((p) => p.faction)
-      .map((p) => ({ playerId: p.id, faction: p.faction!, ...p.stats, alive: p.alive && p.connected }))
+      .map((p) => ({ playerId: p.id, faction: p.faction!, ...p.stats, alive: p.alive && p.connected, ejected: !!p.ejected }))
   }
 
   /** Mid-match disconnect (Spec §12): no longer counts; open task reset. */

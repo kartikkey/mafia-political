@@ -16,6 +16,7 @@ export default function RestorePower({ puzzle, error, busy, onSubmit }: Props) {
   const [pairs, setPairs] = useState<Record<string, string>>({})
   const [source, setSource] = useState<string | null>(null)
   const [shake, setShake] = useState<string | null>(null)
+  const [hint, setHint] = useState<string | null>(null)
 
   useEffect(() => {
     if (error) setPairs({})
@@ -28,12 +29,14 @@ export default function RestorePower({ puzzle, error, busy, onSubmit }: Props) {
     if (s.label !== t.label) {
       playSound('error')
       setShake(targetId)
+      setHint(`Wrong terminal — ${s.label} goes to ${s.label}`)
       setTimeout(() => setShake(null), 300)
       return
     }
     const next = { ...Object.fromEntries(Object.entries(pairs).filter(([, v]) => v !== targetId)), [source]: targetId }
     setPairs(next)
     setSource(null)
+    setHint(null)
     playSound('vote')
     if (Object.keys(next).length === puzzle.sources.length) onSubmit(next)
   }
@@ -41,6 +44,7 @@ export default function RestorePower({ puzzle, error, busy, onSubmit }: Props) {
   const yOf = (list: { id: string }[], id: string) => list.findIndex((x) => x.id === id) * ROW_H + ROW_H / 2
 
   return (
+    <>
     <div className="wires">
       <div className="wires__col">
         {puzzle.sources.map((s) => (
@@ -77,5 +81,7 @@ export default function RestorePower({ puzzle, error, busy, onSubmit }: Props) {
         ))}
       </div>
     </div>
+    {hint && <p className="task-modal__error" role="status" data-testid="wire-hint">{hint}</p>}
+    </>
   )
 }

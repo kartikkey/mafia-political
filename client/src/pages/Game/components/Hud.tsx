@@ -1,4 +1,5 @@
-import { ClipboardList } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, ChevronRight, ClipboardList } from 'lucide-react'
 import type { PublicPlayer, RoleAssignment, TaskInstance } from '@netagiri/shared'
 import Badge from 'common/components/Badge'
 
@@ -15,6 +16,8 @@ export default function Hud({ role, tasks, completed, total, players }: Props) {
   const pct = total ? Math.round((completed / total) * 100) : 0
   const deep = role?.faction === 'DEEP_STATE'
   const mates = players.filter((p) => role?.teammateIds.includes(p.id))
+  const [open, setOpen] = useState(true)
+  const Chevron = open ? ChevronDown : ChevronRight
 
   return (
     <aside className="hud hud--tasks" data-testid="hud-tasks">
@@ -34,15 +37,17 @@ export default function Hud({ role, tasks, completed, total, players }: Props) {
           <p className="hud__hint">Tasks you open are fake — they never add progress.</p>
         </>
       )}
-      <h2 className="hud__title">{deep ? 'Cover tasks' : 'Tasks'}</h2>
-      <ul className="hud__list">
+      <button className="hud__toggle" onClick={() => setOpen(!open)} aria-expanded={open} data-testid="hud-tasks-toggle">
+        <Chevron size={14} aria-hidden /> {deep ? 'Cover tasks' : 'Tasks'} ({total - completed} left) — {open ? 'hide' : 'show'}
+      </button>
+      {open && <ul className="hud__list">
         {tasks.map((t) => (
           <li key={t.taskId} className={t.status === 'COMPLETE' ? 'is-done' : ''} data-testid={`task-item-${t.taskId}`}>
             <span aria-hidden>{t.status === 'COMPLETE' ? '[x]' : '[ ]'}</span> {t.label}
             {t.status === 'COMPLETE' && <span className="visually-hidden"> (complete)</span>}
           </li>
         ))}
-      </ul>
+      </ul>}
     </aside>
   )
 }

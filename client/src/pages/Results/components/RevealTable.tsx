@@ -30,7 +30,7 @@ export default function RevealTable({ stats, players }: { stats: PlayerMatchStat
                 <td>{s.tasksCompleted}</td>
                 <td>{s.eliminations}</td>
                 <td>{s.meetingsAttended}</td>
-                <td>{s.alive ? 'Alive' : p && !p.connected ? 'Left' : 'Eliminated'}</td>
+                <td>{s.alive ? 'Alive' : s.ejected ? 'Voted out' : p && !p.connected ? 'Left' : 'Eliminated'}</td>
               </tr>
             )
           })}

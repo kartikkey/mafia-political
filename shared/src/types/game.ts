@@ -82,6 +82,8 @@ export interface PlayerMatchStats {
   eliminations: number
   meetingsAttended: number
   alive: boolean
+  /** Removed by vote (vs eliminated by an agent). */
+  ejected?: boolean
 }
 
 /** The slice of match state each client is allowed to see. */

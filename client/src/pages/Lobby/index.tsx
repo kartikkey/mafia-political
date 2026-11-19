@@ -1,6 +1,7 @@
 import { useAppDispatch, useAppSelector } from 'common/hooks/redux'
 import { useMatchNavigation } from 'common/hooks/useMatchNavigation'
 import PixelButton from 'common/components/PixelButton'
+import MuteToggle from 'common/components/MuteToggle'
 import PixelPanel from 'common/components/PixelPanel'
 import { startGame } from 'slices/lobby/thunk'
 import { leaveRoom } from 'slices/join/thunk'
@@ -21,6 +22,7 @@ export default function Lobby() {
 
   return (
     <div className="page lobby">
+      <div className="page-corner"><MuteToggle /></div>
       <h1>NETAGIRI</h1>
       <div className="lobby__grid">
         <PixelPanel title={`Members of Parliament (${players.length}/${lobby?.maxPlayers ?? 10})`}>

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from 'common/hooks/redux'
 import PixelButton from 'common/components/PixelButton'
+import MuteToggle from 'common/components/MuteToggle'
 import PixelPanel from 'common/components/PixelPanel'
 import Avatar from 'common/components/Avatar'
 import { AVATARS } from 'helpers/avatars'
@@ -43,6 +44,7 @@ export default function Join() {
 
   return (
     <div className="page join">
+      <div className="page-corner"><MuteToggle /></div>
       <header className="join__brand">
         <h1>NETAGIRI</h1>
         <p className="join__sub">PARLIAMENT UNDER SIEGE</p>

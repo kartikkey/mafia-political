@@ -78,7 +78,7 @@ export default function Game() {
 
   if (!match) return <div className="page muted">Loading match…</div>
 
-  const prompt = !playing || !alive
+  const prompt = !playing || !alive || activeTaskId
     ? null
     : nearBody
       ? `Press SPACE — Report the body of ${match.players.find((p) => p.id === nearBody.playerId)?.name ?? 'an MP'}`
