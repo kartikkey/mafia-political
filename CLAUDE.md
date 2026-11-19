@@ -9,7 +9,7 @@ Indian Parliament. 2D top-down, 16-bit pixel-art style. 8-hour hackathon MVP.
 |---|---|
 | **Behaviour / rules** (wins over everything) | `docs/specs/gameplay-spec.txt` (from the `.docx`) |
 | Game concept, story, scope | `docs/specs/game-design.txt` |
-| **Appearance** | `docs/specs/NETAGIRI_Visual_Reference_Pack.pdf` |
+| **Appearance** | `docs/references/README.md`: index of every board + sprite sheet + key art, what each screen should follow, and where boards disagree with the spec. PDF: `docs/specs/NETAGIRI_Visual_Reference_Pack.pdf` |
 | Module plan + build prompts | `docs/PROJECT_PLAN.md` |
 
 Do not invent factions, mechanics or screens outside the spec without asking.
@@ -85,10 +85,16 @@ client/src/
 8. Naming: module folders PascalCase, slice folders camelCase, entry files
    `index.tsx`, components PascalCase.
 
-### Visual language (Visual Reference Pack, Board 3)
+### Visual language (Visual Reference Pack, Board 3; see docs/references/)
+- Before building or restyling a screen, open the reference listed for it in
+  `docs/references/README.md` and match its layout.
+- Characters are the 8 sprite-sheet variations A1–A8 (`helpers/avatars.ts`).
+  Sprites need Idle 4f, Walk 4 directions × 4f, Interact 3f, Eliminated 4f, Meeting 4f.
+- Boards also show a "Media Center" room and Journalist/Lobbyist names. These
+  are **not** in scope (spec wins); ask before adding them.
 - Colours only via CSS vars from `_tokens.scss`: `--c-primary` #1B2B3D
   (midnight navy), `--c-green` #607B57 (parliament green), `--c-beige` #D8C8A4
-  (paper), `--c-red` #A8463D (alert), `--c-accent` #F2C14E (gold).
+  (paper), `--c-red` #A8463D (alert), `--c-accent` #F2C14E (gold), `--c-ivory` #F5E6C8.
 - Fonts: `--f-heading` Press Start 2P (headings, buttons), `--f-body` VT323.
 - Pixel look: hard borders, `--shadow-pixel`, `image-rendering: pixelated`, no
   rounded corners or soft gradients on UI chrome.

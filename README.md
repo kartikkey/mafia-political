@@ -1,5 +1,7 @@
 # NETAGIRI — Parliament Under Siege
 
+![Key art](docs/references/extra/key-art-poster.webp)
+
 > Power is temporary. Betrayal is permanent.
 
 A 6–10 player multiplayer social-deduction browser game set in a fictional
@@ -7,7 +9,11 @@ Indian Parliament. Government MPs complete parliamentary tasks and vote out
 infiltrators; undercover Deep State agents sabotage, eliminate and manipulate
 emergency votes.
 
+Current build (placeholder art):
+
 ![Gameplay](docs/screenshots/game.png)
+
+Visual target: see [`docs/references/`](docs/references/README.md).
 
 ## Quick start
 
@@ -44,7 +50,7 @@ a room in one, join with the 5-letter code in the others, and start.
 shared/   types, Socket.IO event contracts, settings, pure rules, Parliament map
 server/   authoritative Socket.IO game server
 client/   React + Redux Toolkit client (mecord folder structure)
-docs/     specs (source of truth), PROJECT_PLAN.md (modules + build prompts), screenshots
+docs/     specs (rules), references/ (visual boards, sprite sheet, key art), PROJECT_PLAN.md, screenshots
 e2e/      multi-client smoke test
 ```
 

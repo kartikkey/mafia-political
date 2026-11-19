@@ -1,6 +1,7 @@
 # NETAGIRI — Project Plan & Build Prompts
 
-Generated from the three source documents in `docs/specs/`. The **Gameplay Spec**
+Generated from the three source documents in `docs/specs/` plus the visual
+references indexed in [`docs/references/README.md`](references/README.md). The **Gameplay Spec**
 is the behavioural source of truth; the **Visual Reference Pack** defines appearance.
 
 ---
@@ -123,7 +124,8 @@ sprites from the Visual Pack (do in Prompt 9).
 ### PROMPT 3 — Task System & Shared Progress
 
 ```
-Read CLAUDE.md first. Implement Spec §5 (task system) with the §6.4 HOLD fallback first.
+Read CLAUDE.md first. Implement Spec §5 (task system)
+Visual: docs/references/README.md → In-match HUD (task list top-left) + Board 2 §5. with the §6.4 HOLD fallback first.
 
 Server (server/src/game/Match.ts + handlers/gameHandlers.ts):
 - TASK_OPENED {taskId}: validate PLAYING, alive, task exists, withinRange(player, task,
@@ -151,7 +153,8 @@ rejected; task victory fires at 100%; totalTasks 0 never wins.
 ### PROMPT 4 — Mini-games
 
 ```
-Read CLAUDE.md first. Replace HOLD with the three Spec §6 mini-games, keeping HOLD as a
+Read CLAUDE.md first. Replace HOLD with the three Spec §6 mini-games
+Visual: Boards 1 & 2 → Mini-games / Task examples (docs/references/boards/)., keeping HOLD as a
 fallback per task type flag. Folder: client/src/pages/Game/components/minigames/.
 
 Puzzles are generated server-side in server/src/game/puzzles.ts and kept on the Match;
@@ -175,6 +178,7 @@ Tests for each validator (correct, wrong, replayed after COMPLETE).
 
 ```
 Read CLAUDE.md first. Implement Spec §7.
+Visual: Board 1 & 2 → round Eliminate/Report buttons bottom-right; sprite sheet → Eliminated (4 frames).
 
 Elimination (PLAYER_ELIMINATE_REQUEST {targetId}):
 - Reject unless: state PLAYING, actor alive & DEEP_STATE, target alive & GOVERNMENT &
@@ -205,7 +209,8 @@ cooldown; body created exactly once; parity win after kill.
 ### PROMPT 6 — Reporting, Meetings & Voting
 
 ```
-Read CLAUDE.md first. Implement Spec §8 and the meeting states of §9.1.
+Read CLAUDE.md first. Implement Spec §8 and the meeting states
+Visual: Boards 1 & 2 → Emergency Meeting / Voting screen (portrait row, timers, Confirm Vote, Skip Vote). of §9.1.
 
 Server:
 - BODY_REPORTED {bodyId}: alive reporter within reportRange of an unreported body; mark
@@ -259,6 +264,7 @@ disconnect triggers parity win; actions after GAME_OVER rejected.
 
 ```
 Read CLAUDE.md first. Complete pages/Results per Game Design §9.
+Visual: Boards 1 & 2 → End Result screen (laurel banner, Match Summary, Players & Roles list).
 
 - Government win: "Democracy survives!" + "The Deep State conspiracy has been exposed."
   Deep State win: "The government has fallen!" + "Parliament has been infiltrated."
@@ -273,6 +279,9 @@ Read CLAUDE.md first. Complete pages/Results per Game Design §9.
 
 ```
 Read CLAUDE.md first. Spec §11 + Game Design §8 + Visual Pack.
+Visual: ALL of docs/references/ — sprite sheet A1–A8 (Idle 4f, Walk 4×4f, Interact 3f,
+Eliminated 4f, Meeting 4f), area snapshots for tilesets, icon set, props, key-art poster for the
+Join/title screen. Respect the Conflicts table (no Media Center, no role-like cosmetic names).
 
 - Emit NEWS from every server event listed in shared/src/constants/news.ts.
 - Sprites: 16-bit politician sprites (kurta, bandhgala, saree, Nehru jacket…) with
@@ -307,4 +316,13 @@ Reference Pack:
   Press Start 2P + VT323).
 - Shared primitives → `client/src/common/components/` (PixelButton, PixelPanel,
   Badge, Avatar, Modal).
-- App name / logo → `client/index.html` title and `pages/Join` header.
+- App name / logo → `client/index.html` title and `pages/Join` header
+  (logo treatment from `docs/references/extra/key-art-poster.webp`).
+- Characters → A1–A8 in `client/src/helpers/avatars.ts`
+  (`docs/references/extra/character-sprite-sheet-a1-a8.webp`).
+
+## Open decision
+
+Every board shows a sixth room, **Media Center** ("Leaks & Scandals"). The
+spec defines five areas and puts scandals out of scope, so it is not on the
+map. Confirm before adding it.
