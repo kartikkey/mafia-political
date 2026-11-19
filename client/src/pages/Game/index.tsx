@@ -31,10 +31,10 @@ export default function Game() {
   const dispatch = useAppDispatch()
   const { match, role, feedback, feedbackAt, activeTaskId, eliminationReadyAt, sabotageReadyAt, interacting } = useAppSelector((s) => s.game)
   const { zoom, cycleZoom } = useZoom()
-  const { mapOpen, toggleMap, closeMap } = useMapToggle()
   const playerId = useAppSelector((s) => s.join.playerId)
   const me = useCurrentPlayer()
-  const { pos } = useLocalMovement()
+  const { mapOpen, toggleMap, closeMap } = useMapToggle()
+  const { pos } = useLocalMovement(mapOpen)
   useRerenderEvery(150) // keep proximity prompts + cooldowns fresh while the local player moves
   const { nearTask, nearBody, nearTarget, nearPanel, roomLabel } = useProximity(match, me, role, pos)
 
@@ -128,7 +128,7 @@ export default function Game() {
           {prompt && <div className="game__prompt" data-testid="interaction-prompt">{prompt}</div>}
           {!alive && match.state !== 'ROLE_ASSIGNMENT' && (
             <div className="game__dead" role="status" data-testid="eliminated-banner">
-              You are a ghost — drift anywhere (even through walls) to watch. Only other ghosts can see you. No voting, chat or actions.
+              You are a ghost — drift through walls to watch. Only other ghosts can see you.
             </div>
           )}
         </div>

@@ -20,10 +20,10 @@ const KEYMAP: Record<string, Direction> = {
   KeyD: 'right', ArrowRight: 'right',
 }
 
-export function useLocalMovement() {
+export function useLocalMovement(paused = false) {
   const dispatch = useAppDispatch()
   const me = useCurrentPlayer()
-  const canMove = useAppSelector((s) => s.game.match?.state === 'PLAYING' && !s.game.activeTaskId)
+  const canMove = useAppSelector((s) => s.game.match?.state === 'PLAYING' && !s.game.activeTaskId) && !paused
   const pos = useRef<Vec2 | null>(null)
   const facing = useRef<Direction>('down')
   const held = useRef(new Set<Direction>())

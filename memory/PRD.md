@@ -27,7 +27,14 @@ Out of scope: Media Center, journalists/lobbyists, bribery, voice chat, multiple
 - Starting elimination grace period 12s (MATCH_SETTINGS.initialEliminationCooldownMs).
 - Tests: 51 unit; e2e/acceptance.cjs 18/18; e2e/t1-features2.cjs all PASS.
 
+## Iteration 3 (2026-06)
+- Spectator ghosts: eliminated players drift through walls (map bounds), visible only to other ghosts (masked MATCH_STATE + ghost-only PLAYER_MOVED).
+- Map overlay (M / legend button): full map, room names, open/done/offline stations, YOU marker; movement paused while open.
+- Leak clue: meeting card "X was last seen at <station>" (starts on leaker, updated by any living player stepping up while offline; reset each round).
+- Shared clock: TIME_SYNC (lowest-RTT of 4 samples, resync every 60s); all countdowns use serverNow().
+- Tests: 55 unit; acceptance 18/18; e2e/phase3.cjs 5/5; testing agent iteration_3 21/21.
+
 ## Backlog
-- P1: map overlay (M), server-time offset for countdowns (client clock skew).
+- P1: deploy verification on Emergent hosting (Node server).
 - P2: rejoin after disconnect, voice chat.
 - Deployment: Emergent deploy pipeline expects backend/frontend layout — Node server deploy unverified.

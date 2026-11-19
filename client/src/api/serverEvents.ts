@@ -20,6 +20,7 @@ import { chatReceived, meetingStarted, voteCast, voteResults } from 'slices/meet
 import { gameOverReceived } from 'slices/results/reducer'
 import { playSound } from 'helpers/sound'
 import { syncClock } from 'slices/game/thunk'
+import { CLOCK_RESYNC_MS } from 'config/constants'
 
 export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId: () => string | null) {
   // Thunk dispatch through the plain Dispatch type (store is configured with thunk middleware).
@@ -28,6 +29,8 @@ export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId
     dispatch(setConnected(true))
     resync()
   })
+  // Periodic resync corrects drift (long sessions, laptop sleep).
+  setInterval(() => socket.connected && resync(), CLOCK_RESYNC_MS)
   socket.on('disconnect', () => {
     dispatch(setConnected(false))
     dispatch(connectionLost())

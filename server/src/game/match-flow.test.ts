@@ -289,7 +289,7 @@ describe('ghosts, leak clue (phase 3)', () => {
     // straight up into the top wall row (y=16 is wall) — allowed for a ghost
     expect(match.move(ghost.id, { x: start.x, y: start.y - 60 }, 'up', clock + 1000)).toBe(true)
     expect(match.move(ghost.id, { x: start.x, y: 2 }, 'up', clock + 2000)).toBe(false) // off-map
-    expect(match.view(false).players.find((p) => p.id === ghost.id)!.position).toEqual(start)
+    expect(match.view().players.find((p) => p.id === ghost.id)!.position).toEqual(start)
     expect(match.view(true).players.find((p) => p.id === ghost.id)!.position.y).toBe(start.y - 60)
     expect(match.openTask(ghost.id, match.tasks[0].taskId, tick())).toBe('You have been eliminated')
   })

@@ -116,7 +116,7 @@ export class Match {
   }
 
   /** `ghostView` = real ghost positions (sent only to eliminated players). */
-  publicPlayers(ghostView = true): PublicPlayer[] {
+  publicPlayers(ghostView = false): PublicPlayer[] {
     return [...this.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
@@ -131,7 +131,7 @@ export class Match {
     }))
   }
 
-  view(ghostView = true): ClientMatchView {
+  view(ghostView = false): ClientMatchView {
     return {
       roomCode: this.roomCode,
       state: this.state,
@@ -372,8 +372,8 @@ export class Match {
     } else {
       duration = MATCH_SETTINGS.documentLeakDurationMs
       this.sabotage = { powerStatus: 'ON', powerRestoreAt: null, disabledTaskIds: [leakTask!.taskId], leakEndsAt: now + duration }
-      const nearest = this.livingPlayers.sort((a, b) => distance(a.position, leakTask!.position) - distance(b.position, leakTask!.position))[0]
-      this.leakClue = { taskId: leakTask!.taskId, stationLabel: leakTask!.label, playerId: nearest.id }
+      // Starts on the leaker; any living player who later steps up to the station takes over (Phase 3 clue).
+      this.leakClue = { taskId: leakTask!.taskId, stationLabel: leakTask!.label, playerId: p.id }
       for (const pl of this.players.values()) {
         if (pl.openTask?.taskId === leakTask!.taskId) {
           pl.openTask = null

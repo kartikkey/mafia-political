@@ -8,3 +8,5 @@ export const ANIM_FRAME_MS = 150
 export const ZOOM_LEVELS = [2, 1.4, 1] as const
 /** Camera follow smoothing per frame (0–1). */
 export const CAMERA_LERP = 0.18
+/** How often the client re-estimates the server clock offset. */
+export const CLOCK_RESYNC_MS = 60_000
