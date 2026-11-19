@@ -34,6 +34,7 @@ import {
   type VoteChoice,
   type VoteTally,
   type LeakClue,
+  type MeetingReplay,
 } from '@netagiri/shared'
 import { checkAnswer, generatePuzzle, type GeneratedPuzzle } from './puzzles'
 
@@ -53,8 +54,9 @@ export interface ServerPlayer extends PublicPlayer {
   lastChatAt: number
   eliminationReadyAt: number
   openTask: OpenTask | null
-  stats: { tasksCompleted: number; eliminations: number; meetingsAttended: number }
+  stats: ReturnType<typeof freshStats>
   ejected?: boolean
+  isBot?: boolean
   /** Where they fell — what living players are shown while the ghost drifts. */
   deathPosition?: Vec2
 }
@@ -64,11 +66,12 @@ export interface MeetingInfo {
   callerId: string
   bodyId?: string
   clue?: LeakClue
+  replay?: MeetingReplay
 }
 
 const IN_MATCH: MatchState[] = ['ROLE_ASSIGNMENT', 'PLAYING', 'MEETING_TRANSITION', 'DISCUSSION', 'VOTING', 'VOTE_RESULTS']
 const secs = (ms: number) => Math.max(1, Math.ceil(ms / 1000))
-const freshStats = () => ({ tasksCompleted: 0, eliminations: 0, meetingsAttended: 0 })
+export const freshStats = () => ({ tasksCompleted: 0, eliminations: 0, meetingsAttended: 0, fakeTasks: 0, reports: 0, powerRepairs: 0, votesOnAgents: 0 })
 const powerOn = (): SabotageState => ({ powerStatus: 'ON', powerRestoreAt: null, disabledTaskIds: [], leakEndsAt: null })
 
 export class Match {
@@ -91,6 +94,28 @@ export class Match {
   /** Separate from the phase timer so meetings can't wipe or double-fire it. */
   private sabotageTimer: NodeJS.Timeout | null = null
   private bodySeq = 0
+  /** Bot/replay ticker (game/ticker.ts). */
+  tickTimer: NodeJS.Timeout | null = null
+  /** Ring buffer of living positions for body-report replays. */
+  private frames: { at: number; players: { id: string; x: number; y: number }[] }[] = []
+
+  recordFrame(now = Date.now()) {
+    if (this.state !== 'PLAYING') return
+    const last = this.frames.at(-1)
+    if (last && now - last.at < MATCH_SETTINGS.replayFrameMs - 20) return
+    this.frames.push({ at: now, players: this.livingPlayers.map((p) => ({ id: p.id, x: Math.round(p.position.x), y: Math.round(p.position.y) })) })
+    const keep = Math.ceil(MATCH_SETTINGS.replayWindowMs / MATCH_SETTINGS.replayFrameMs)
+    if (this.frames.length > keep) this.frames.splice(0, this.frames.length - keep)
+  }
+
+  /** Last ~10s of living players within the replay radius of the body (the victim included while alive). */
+  replayAround(body: Body, now = Date.now()): MeetingReplay {
+    const near = (q: { x: number; y: number }) => Math.hypot(q.x - body.position.x, q.y - body.position.y) <= MATCH_SETTINGS.replayRadius
+    const frames = this.frames
+      .filter((f) => now - f.at <= MATCH_SETTINGS.replayWindowMs)
+      .map((f) => ({ players: f.players.filter(near) }))
+    return { center: body.position, radius: MATCH_SETTINGS.replayRadius, frameMs: MATCH_SETTINGS.replayFrameMs, bodyPlayerId: body.playerId, frames }
+  }
 
   constructor(public readonly roomCode: string) {}
 
@@ -127,6 +152,7 @@ export class Match {
       position: !p.alive && !ghostView ? (p.deathPosition ?? p.position) : p.position,
       facing: p.facing,
       // Faction is revealed only for dead players or once the match is over (Spec §2.3).
+      isBot: p.isBot || undefined,
       revealedFaction: this.state === 'GAME_OVER' || !p.alive ? (p.faction ?? undefined) : undefined,
     }))
   }
@@ -295,12 +321,16 @@ export class Match {
     if (!valid) return open.answer === null ? 'Keep holding' : 'Incorrect — try again'
 
     p.openTask = null
-    if (open.fake) return { progressed: false, restored: false } // Spec §2.3: Deep State never adds progress
+    if (open.fake) {
+      if (!isRepair) p.stats.fakeTasks++
+      return { progressed: false, restored: false } // Spec §2.3: Deep State never adds progress
+    }
 
     let restored = false
     if (isRepair || (task!.type === 'RESTORE_POWER' && this.sabotage.powerStatus === 'OUT')) {
       this.clearSabotage()
       restored = true
+      p.stats.powerRepairs++
     }
     if (isRepair) return { progressed: false, restored }
 
@@ -419,7 +449,8 @@ export class Match {
     if (body.reported) return 'Already reported'
     if (!withinRange(p.position, body.position, MATCH_SETTINGS.reportRange)) return 'Too far away'
     body.reported = true
-    this.beginMeeting({ reason: 'BODY', callerId: p.id, bodyId })
+    p.stats.reports++
+    this.beginMeeting({ reason: 'BODY', callerId: p.id, bodyId, replay: this.replayAround(body) })
     return null
   }
 
@@ -466,6 +497,9 @@ export class Match {
 
   /** Spec §8.4, §8.6: tally submitted votes (incl. from since-disconnected voters). */
   resolveVotes(): VoteTally {
+    for (const [voterId, choice] of this.votes) {
+      if (choice !== 'SKIP' && this.players.get(choice)?.faction === 'DEEP_STATE') this.players.get(voterId)!.stats.votesOnAgents++
+    }
     const { counts, ejectedPlayerId } = tallyVotes(Object.fromEntries(this.votes))
     let ejectedFaction: Faction | null = null
     if (ejectedPlayerId) {
@@ -490,6 +524,7 @@ export class Match {
     this.votes.clear()
     this.meeting = null
     this.leakClue = null
+    this.frames = []
     this.emergencyAvailableAt = now + MATCH_SETTINGS.emergencyMeetingCooldownMs
     this.setState('PLAYING')
   }
@@ -558,6 +593,7 @@ export class Match {
 
   dispose() {
     if (this.timer) clearTimeout(this.timer)
+    if (this.tickTimer) clearInterval(this.tickTimer)
     this.clearSabotage()
   }
 }

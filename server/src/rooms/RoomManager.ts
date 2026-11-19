@@ -4,8 +4,10 @@
  * Empty room → disposed (Spec §9.3 zero-player edge case).
  */
 import { MATCH_SETTINGS, SPAWN_POINTS, type LobbyView } from '@netagiri/shared'
-import { Match, type ServerPlayer } from '../game/Match'
+import { Match, freshStats, type ServerPlayer } from '../game/Match'
 import { makeId, makeRoomCode } from '../utils/ids'
+
+const BOT_NAMES = ['Bot Sharma', 'Bot Iyer', 'Bot Reddy', 'Bot Das', 'Bot Khan', 'Bot Mehta', 'Bot Pillai', 'Bot Gill']
 
 export class RoomManager {
   private rooms = new Map<string, Match>()
@@ -36,7 +38,12 @@ export class RoomManager {
     const match = this.get(roomCode)
     if (!match) return 'Room not found'
     if (match.state !== 'WAITING') return 'Match already in progress'
-    if (match.connectedPlayers.length >= MATCH_SETTINGS.maxPlayers) return 'Room is full'
+    if (match.connectedPlayers.length >= MATCH_SETTINGS.maxPlayers) {
+      // A real player bumps a computer player.
+      const bot = match.connectedPlayers.find((p) => p.isBot)
+      if (!bot) return 'Room is full'
+      this.removeBot(match, bot.id)
+    }
     if (match.connectedPlayers.some((p) => p.name.toLowerCase() === name.toLowerCase())) return 'Name already taken in this room'
     return { match, player: this.addPlayer(match, socketId, name, avatar, false) }
   }
@@ -58,7 +65,7 @@ export class RoomManager {
       lastChatAt: 0,
       eliminationReadyAt: 0,
       openTask: null,
-      stats: { tasksCompleted: 0, eliminations: 0, meetingsAttended: 0 },
+      stats: freshStats(),
     }
     match.players.set(player.id, player)
     this.sockets.set(socketId, { roomCode: match.roomCode, playerId: player.id })
@@ -80,16 +87,38 @@ export class RoomManager {
 
     if (player.isHost) {
       player.isHost = false
-      const next = match.connectedPlayers[0]
+      const next = match.connectedPlayers.find((p) => !p.isBot)
       if (next) next.isHost = true
     }
 
-    const closed = match.connectedPlayers.length === 0
+    // Only computer players left → close the room.
+    const closed = match.connectedPlayers.every((p) => p.isBot)
     if (closed) {
       match.dispose()
       this.rooms.delete(match.roomCode)
     }
     return { match, playerId: player.id, closed }
+  }
+
+  /** Fill empty seats with computer players up to the minimum needed to start. */
+  addBots(match: Match): number {
+    let added = 0
+    while (match.connectedPlayers.length < MATCH_SETTINGS.minPlayers) {
+      const taken = new Set(match.connectedPlayers.map((p) => p.name))
+      const name = BOT_NAMES.find((n) => !taken.has(n)) ?? `Bot ${match.players.size + 1}`
+      const id = makeId()
+      const bot = this.addPlayer(match, `bot:${id}`, name, match.players.size % 8, false)
+      bot.isBot = true
+      added++
+    }
+    return added
+  }
+
+  removeBot(match: Match, id: string) {
+    const p = match.players.get(id)
+    if (!p?.isBot) return
+    match.players.delete(id)
+    this.sockets.delete(p.socketId)
   }
 
   lobbyView(match: Match): LobbyView {

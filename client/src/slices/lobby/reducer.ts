@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { LobbyView } from '@netagiri/shared'
-import { setAvatar, startGame } from './thunk'
+import { addBots, removeBots, setAvatar, startGame } from './thunk'
 import { leaveRoom } from 'slices/join/thunk'
 import { connectionLost } from 'slices/join/reducer'
 
@@ -39,6 +39,12 @@ const lobbySlice = createSlice({
         state.error = action.payload as string
       })
       .addCase(setAvatar.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+      .addCase(addBots.rejected, (state, action) => {
+        state.error = action.payload as string
+      })
+      .addCase(removeBots.rejected, (state, action) => {
         state.error = action.payload as string
       })
       .addCase(leaveRoom.fulfilled, () => initialState)

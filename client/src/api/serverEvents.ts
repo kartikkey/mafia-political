@@ -12,6 +12,7 @@ import {
   newsReceived,
   playerEliminated,
   playerInteracting,
+  ghostChatReceived,
   playerMoved,
   roleAssigned,
   taskProgress,
@@ -62,7 +63,7 @@ export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId
   })
   socket.on('CHAT_MESSAGE', (m) => {
     playSound('chat')
-    dispatch(chatReceived(m))
+    dispatch(m.ghost ? ghostChatReceived(m) : chatReceived(m))
   })
   socket.on('VOTE_CAST', ({ voterId }) => {
     playSound('vote')

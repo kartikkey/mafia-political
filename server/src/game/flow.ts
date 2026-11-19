@@ -38,7 +38,7 @@ export function finishIfWon(io: IO, match: Match): boolean {
 /** After Match.report / Match.callEmergency succeeded. */
 export function announceMeeting(io: IO, match: Match) {
   const m = match.meeting!
-  io.to(match.roomCode).emit('MEETING_STARTED', { reason: m.reason, callerId: m.callerId, bodyId: m.bodyId, phaseEndsAt: match.phaseEndsAt ?? Date.now(), clue: m.clue })
+  io.to(match.roomCode).emit('MEETING_STARTED', { reason: m.reason, callerId: m.callerId, bodyId: m.bodyId, phaseEndsAt: match.phaseEndsAt ?? Date.now(), clue: m.clue, replay: m.replay })
   news(io, match, m.reason === 'BODY' ? 'BODY_REPORTED' : 'MEETING_STARTED')
   broadcastMatch(io, match)
 }

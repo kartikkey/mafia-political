@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import type { Body, ClientMatchView, Direction, NewsKey, RoleAssignment, TaskPuzzle, Vec2 } from '@netagiri/shared'
+import type { Body, ChatMessage, ClientMatchView, Direction, NewsKey, RoleAssignment, TaskPuzzle, Vec2 } from '@netagiri/shared'
 import { leaveRoom } from 'slices/join/thunk'
 import { connectionLost } from 'slices/join/reducer'
 import { callEmergencyMeeting, completeTask, eliminatePlayer, openTask, reportBody, sabotage } from './thunk'
@@ -21,6 +21,8 @@ interface GameState {
   news: NewsItem[]
   /** playerId → taskId for everyone currently working a station (real or fake). */
   interacting: Record<string, string>
+  /** Ghost whispers (eliminated players only), kept for the whole match. */
+  ghostChat: ChatMessage[]
   /** Latest short feedback line ("Too far away", "Cooldown: 8s"). */
   feedback: string | null
   feedbackAt: number
@@ -37,6 +39,7 @@ const initialState: GameState = {
   taskBusy: false,
   news: [],
   interacting: {},
+  ghostChat: [],
   feedback: null,
   feedbackAt: 0,
 }
@@ -67,6 +70,7 @@ const gameSlice = createSlice({
         state.feedback = 'Documents leaked — station offline'
         state.feedbackAt = Date.now()
       }
+      if (action.payload.state === 'WAITING' || action.payload.state === 'ROLE_ASSIGNMENT') state.ghostChat = []
       if (action.payload.state === 'WAITING') {
         state.role = null
         state.news = []
@@ -107,6 +111,9 @@ const gameSlice = createSlice({
       state.news = [...state.news.slice(-9), action.payload]
     },
     closeTask: clearTask,
+    ghostChatReceived: (state, action: PayloadAction<ChatMessage>) => {
+      state.ghostChat = [...state.ghostChat.slice(-49), action.payload]
+    },
     playerInteracting: (state, action: PayloadAction<{ playerId: string; taskId: string | null }>) => {
       if (action.payload.taskId) state.interacting[action.payload.playerId] = action.payload.taskId
       else delete state.interacting[action.payload.playerId]
@@ -164,6 +171,7 @@ export const {
   newsReceived,
   closeTask,
   playerInteracting,
+  ghostChatReceived,
   setFeedback,
 } = gameSlice.actions
 export default gameSlice.reducer

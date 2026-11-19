@@ -51,6 +51,13 @@ export const MATCH_SETTINGS = {
 
   newsTickerMs: 5_000,
 
+  /** Server tick for computer players + replay recording. */
+  botTickMs: 200,
+  /** Body-report replay: how far back, sample rate, radius around the body (world px). */
+  replayWindowMs: 10_000,
+  replayFrameMs: 200,
+  replayRadius: 224,
+
   /** Client feedback line lifetime ("Too far away", "Cooldown: 8s"). */
   feedbackMs: 2_000,
 } as const

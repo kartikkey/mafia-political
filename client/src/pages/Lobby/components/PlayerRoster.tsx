@@ -17,6 +17,7 @@ export default function PlayerRoster({ players, meId, maxPlayers }: Props) {
           <Avatar avatar={p.avatar} size={36} />
           <span className="roster__name">{p.name}{p.id === meId && ' (you)'}</span>
           {p.isHost && <Badge tone="warning">Host</Badge>}
+          {p.isBot && <Badge tone="info">BOT</Badge>}
           <Badge tone={p.connected ? 'success' : 'error'}>{p.connected ? 'Ready' : 'Away'}</Badge>
         </li>
       ))}

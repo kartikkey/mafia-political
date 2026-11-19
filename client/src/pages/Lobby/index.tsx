@@ -3,7 +3,7 @@ import { useMatchNavigation } from 'common/hooks/useMatchNavigation'
 import PixelButton from 'common/components/PixelButton'
 import MuteToggle from 'common/components/MuteToggle'
 import PixelPanel from 'common/components/PixelPanel'
-import { startGame } from 'slices/lobby/thunk'
+import { addBots, removeBots, startGame } from 'slices/lobby/thunk'
 import { leaveRoom } from 'slices/join/thunk'
 import RoomCodeCard from './components/RoomCodeCard'
 import PlayerRoster from './components/PlayerRoster'
@@ -19,6 +19,7 @@ export default function Lobby() {
   const isHost = lobby?.hostId === playerId
   const min = lobby?.minPlayers ?? 6
   const enough = players.length >= min
+  const bots = players.filter((p) => p.isBot).length
 
   return (
     <div className="page lobby">
@@ -35,9 +36,24 @@ export default function Lobby() {
             {enough ? 'Quorum reached.' : `Need ${min - players.length} more MP${min - players.length === 1 ? '' : 's'} (min ${min}).`}
           </p>
           {isHost ? (
-            <PixelButton size="lg" disabled={!enough || submitLoading} onClick={() => dispatch(startGame())}>
-              Start Game
-            </PixelButton>
+            <>
+              <PixelButton size="lg" disabled={!enough || submitLoading} onClick={() => dispatch(startGame())} data-testid="start-game-btn">
+                Start Game
+              </PixelButton>
+              <div className="lobby__bots">
+                {!enough && (
+                  <PixelButton variant="green" onClick={() => dispatch(addBots())} data-testid="add-bots-btn">
+                    Fill {min - players.length} seat{min - players.length === 1 ? '' : 's'} with bots
+                  </PixelButton>
+                )}
+                {bots > 0 && (
+                  <PixelButton variant="ghost" onClick={() => dispatch(removeBots())} data-testid="remove-bots-btn">
+                    Remove {bots} bot{bots === 1 ? '' : 's'}
+                  </PixelButton>
+                )}
+              </div>
+              {bots > 0 && <p className="muted">Computer players follow the same rules. Real MPs who join take a bot's seat.</p>}
+            </>
           ) : (
             <p>Waiting for the host to start…</p>
           )}

@@ -40,6 +40,17 @@ export interface ChatMessage {
   playerId: string
   text: string
   at: number
+  /** Ghost whisper: only eliminated players receive these. */
+  ghost?: boolean
+}
+
+/** Body-report replay: living positions near the body over the last few seconds. */
+export interface MeetingReplay {
+  center: Vec2
+  radius: number
+  frameMs: number
+  bodyPlayerId: string
+  frames: { players: { id: string; x: number; y: number }[] }[]
 }
 
 /** Meeting clue (Document Leak): who was last seen at the leaked station. */
@@ -80,6 +91,9 @@ export interface ClientToServerEvents {
   RETURN_TO_LOBBY: (ack: Ack) => void
   /** Clock sync: client estimates server-time offset from round trips. */
   TIME_SYNC: (ack: Ack<{ serverNow: number }>) => void
+  /** Host: fill empty seats with computer players up to the minimum. */
+  ADD_BOTS: (ack: Ack) => void
+  REMOVE_BOTS: (ack: Ack) => void
 }
 
 export interface ServerToClientEvents {
@@ -100,7 +114,7 @@ export interface ServerToClientEvents {
   /** Someone started/stopped working a station. Same signal for real and fake (Deep State) tasks. */
   PLAYER_INTERACTING: (p: { playerId: string; taskId: string | null }) => void
 
-  MEETING_STARTED: (p: { reason: 'BODY' | 'EMERGENCY'; callerId: string; bodyId?: string; phaseEndsAt: number; clue?: LeakClue }) => void
+  MEETING_STARTED: (p: { reason: 'BODY' | 'EMERGENCY'; callerId: string; bodyId?: string; phaseEndsAt: number; clue?: LeakClue; replay?: MeetingReplay }) => void
   CHAT_MESSAGE: (m: ChatMessage) => void
   VOTE_CAST: (p: { voterId: string }) => void
   VOTE_RESULTS: (t: VoteTally) => void

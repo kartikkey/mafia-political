@@ -68,3 +68,4 @@ input {
 
 .page { position: relative; }
 .page-corner { position: absolute; top: 0; right: 0; border-bottom: 3px solid #000; }
+.lobby__bots { display: flex; gap: var(--s-2); flex-wrap: wrap; margin-top: var(--s-2); }

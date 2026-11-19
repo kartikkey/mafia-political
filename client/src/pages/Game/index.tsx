@@ -19,6 +19,7 @@ import LeakBanner from './components/LeakBanner'
 import { useZoom } from './hooks/useZoom'
 import { useMapToggle } from './hooks/useMapToggle'
 import MapOverlay from './components/MapOverlay'
+import ChatBox from 'components/ChatBox/ChatBox'
 import { useLocalMovement } from './hooks/useLocalMovement'
 import { useProximity } from './hooks/useProximity'
 import { useGameHotkeys } from './hooks/useGameHotkeys'
@@ -29,7 +30,7 @@ const cooldownLeft = secondsUntil
 export default function Game() {
   useMatchNavigation()
   const dispatch = useAppDispatch()
-  const { match, role, feedback, feedbackAt, activeTaskId, eliminationReadyAt, sabotageReadyAt, interacting } = useAppSelector((s) => s.game)
+  const { match, role, feedback, feedbackAt, activeTaskId, eliminationReadyAt, sabotageReadyAt, interacting, ghostChat } = useAppSelector((s) => s.game)
   const { zoom, cycleZoom } = useZoom()
   const playerId = useAppSelector((s) => s.join.playerId)
   const me = useCurrentPlayer()
@@ -132,6 +133,11 @@ export default function Game() {
             </div>
           )}
         </div>
+        {!alive && playing && (
+          <div className="game__ghost-chat">
+            <ChatBox messages={ghostChat} players={match.players} canChat ghost testid="ghost-chat" />
+          </div>
+        )}
         <Hud role={role} leakedIds={leakedIds} tasks={match.tasks} completed={match.completedTasks} total={match.totalTasks} players={match.players} />
         <PlayersAlive players={match.players} />
         <ControlsLegend deep={deep} zoom={zoom} onZoom={cycleZoom} onMap={toggleMap} />

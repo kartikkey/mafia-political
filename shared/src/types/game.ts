@@ -34,6 +34,8 @@ export interface PublicPlayer {
   facing: Direction
   /** Only populated after the player is ejected/eliminated or at GAME_OVER. */
   revealedFaction?: Faction
+  /** Computer-controlled filler player. */
+  isBot?: boolean
 }
 
 export type TaskType = 'FILE_SORT' | 'RESTORE_POWER' | 'APPROVE_BILL' | 'HOLD'
@@ -86,6 +88,12 @@ export interface PlayerMatchStats {
   alive: boolean
   /** Removed by vote (vs eliminated by an agent). */
   ejected?: boolean
+  /** Deep State "cover" tasks finished (never count as progress). */
+  fakeTasks?: number
+  reports?: number
+  powerRepairs?: number
+  /** Votes cast for a Deep State agent. */
+  votesOnAgents?: number
 }
 
 /** The slice of match state each client is allowed to see. */

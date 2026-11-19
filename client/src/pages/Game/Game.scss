@@ -344,3 +344,15 @@
   }
   &__canvas { display: block; width: min(88vw, calc((100vh - 140px) * 1280 / 832)); height: auto; image-rendering: pixelated; }
 }
+
+.game__ghost-chat {
+  position: absolute;
+  left: 50%;
+  bottom: 110px;
+  transform: translateX(-50%);
+  width: 420px;
+  z-index: 6;
+  opacity: 0.94;
+  .chat { min-height: 0; }
+  .chat__list { max-height: 130px; min-height: 60px; }
+}

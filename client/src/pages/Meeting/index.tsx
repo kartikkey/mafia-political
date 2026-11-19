@@ -17,6 +17,7 @@ import PlayerVoteCard from './components/PlayerVoteCard'
 import ChatPanel from './components/ChatPanel'
 import VoteResults from './components/VoteResults'
 import LeakClueCard from './components/LeakClueCard'
+import ReplayPanel from './components/ReplayPanel'
 import './Meeting.scss'
 
 const PHASE_LABEL: Record<string, string> = {
@@ -30,7 +31,7 @@ export default function Meeting() {
   useMatchNavigation()
   const dispatch = useAppDispatch()
   const match = useAppSelector((s) => s.game.match)
-  const { reason, callerId, clue, votedPlayerIds, myVote, tally, submitLoading, error } = useAppSelector((s) => s.meeting)
+  const { reason, callerId, clue, replay, votedPlayerIds, myVote, tally, submitLoading, error } = useAppSelector((s) => s.meeting)
   const me = useCurrentPlayer()
   const [choice, setChoice] = useState<VoteChoice | null>(null)
   if (!match) return null
@@ -91,7 +92,10 @@ export default function Meeting() {
             {error && <p className="error-text" role="alert" data-testid="meeting-error">{error}</p>}
           </PixelPanel>
 
-          <ChatPanel players={match.players} alive={alive} canChat={state === 'DISCUSSION' || state === 'VOTING'} />
+          <div className="meeting__side">
+            {replay && <ReplayPanel replay={replay} players={match.players} />}
+            <ChatPanel players={match.players} alive={alive} canChat={state === 'DISCUSSION' || state === 'VOTING'} />
+          </div>
         </div>
       </div>
     </GameLayout>

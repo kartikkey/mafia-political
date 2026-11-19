@@ -2,6 +2,8 @@
 import { broadcastMatch, endVoting, finishIfWon, interacting, wireMatch } from '../game/flow'
 import type { Match } from '../game/Match'
 import { sanitiseName } from '../utils/ids'
+import { startTicker } from '../game/ticker'
+import { forgetBots } from '../game/bots'
 import { fail, ok, type HandlerContext, type IO } from './types'
 
 const AVATAR_COUNT = 8
@@ -26,6 +28,7 @@ export function registerLobbyHandlers({ io, socket, rooms }: HandlerContext) {
     leave()
     const { match, player } = rooms.create(socket.id, name, validAvatar(p.avatar))
     wireMatch(io, match)
+    startTicker(io, match)
     socket.join(match.roomCode)
     ack(ok({ roomCode: match.roomCode, playerId: player.id }))
     pushLobby(match)
@@ -62,6 +65,24 @@ export function registerLobbyHandlers({ io, socket, rooms }: HandlerContext) {
     sendRoles(io, ref.match)
   })
 
+  socket.on('ADD_BOTS', (ack) => {
+    const ref = rooms.bySocket(socket.id)
+    if (!ref || ref.match.state !== 'WAITING') return ack(fail('Not in a lobby'))
+    if (!ref.player.isHost) return ack(fail('Only the host can add computer players'))
+    if (rooms.addBots(ref.match) === 0) return ack(fail('Lobby already has enough players'))
+    ack(ok(undefined))
+    pushLobby(ref.match)
+  })
+
+  socket.on('REMOVE_BOTS', (ack) => {
+    const ref = rooms.bySocket(socket.id)
+    if (!ref || ref.match.state !== 'WAITING') return ack(fail('Not in a lobby'))
+    if (!ref.player.isHost) return ack(fail('Only the host can remove computer players'))
+    for (const p of [...ref.match.players.values()]) if (p.isBot) rooms.removeBot(ref.match, p.id)
+    ack(ok(undefined))
+    pushLobby(ref.match)
+  })
+
   socket.on('RETURN_TO_LOBBY', (ack) => {
     const ref = rooms.bySocket(socket.id)
     if (!ref) return ack(fail('Not in a room'))
@@ -69,6 +90,7 @@ export function registerLobbyHandlers({ io, socket, rooms }: HandlerContext) {
     if (!ref.player.isHost) return ack(fail('Only the host can reset the room'))
     // Drop players who disconnected during the match.
     for (const [id, pl] of ref.match.players) if (!pl.connected) ref.match.players.delete(id)
+    forgetBots(ref.match)
     ref.match.resetToLobby()
     ack(ok(undefined))
     pushLobby(ref.match)

@@ -8,6 +8,7 @@ import GameLayout from 'layout/GameLayout'
 import { returnToLobby } from 'slices/results/thunk'
 import { leaveRoom } from 'slices/join/thunk'
 import RevealTable from './components/RevealTable'
+import BadgeShelf from './components/BadgeShelf'
 import './Results.scss'
 
 export default function Results() {
@@ -37,6 +38,7 @@ export default function Results() {
           <div><strong>{stats.filter((s) => s.alive).length}/{stats.length}</strong><span>MPs standing</span></div>
         </section>
 
+        {gameOver && <BadgeShelf stats={stats} players={players} />}
         {gameOver && <RevealTable stats={stats} players={players} />}
 
         <div className="results__actions">
