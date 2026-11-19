@@ -1,0 +1,20 @@
+.news-ticker {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  background: var(--c-primary-deep);
+  border-bottom: 3px solid #000;
+  padding: var(--s-1) var(--s-3);
+  min-height: 36px;
+  overflow: hidden;
+
+  &__tag {
+    font-family: var(--f-heading);
+    font-size: 10px;
+    background: var(--c-red);
+    padding: 4px 8px;
+    border: 2px solid #000;
+  }
+  &__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  &--live &__text { color: var(--c-accent); }
+}

@@ -1,0 +1,25 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "baseUrl": "src",
+    "paths": {
+      "api/*": ["api/*"],
+      "assets/*": ["assets/*"],
+      "common/*": ["common/*"],
+      "components/*": ["components/*"],
+      "config/*": ["config/*"],
+      "constants/*": ["constants/*"],
+      "helpers/*": ["helpers/*"],
+      "layout/*": ["layout/*"],
+      "pages/*": ["pages/*"],
+      "routes/*": ["routes/*"],
+      "slices/*": ["slices/*"],
+      "utils/*": ["utils/*"],
+      "store": ["store.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

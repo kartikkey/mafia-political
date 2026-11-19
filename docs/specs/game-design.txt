@@ -1,0 +1,444 @@
+                                       NETAGIRI
+                                   PARLIAMENT UNDER SIEGE
+
+
+                             Game Design & 8-Hour Hackathon MVP Specification
+
+
+
+
+Power is temporary. Betrayal is permanent.
+
+
+
+
+Genre: Multiplayer social deduction
+Players: 6–10
+Setting: Fictional Indian Parliament
+Format: 2D top-down pixel-art browser game
+Target match length: 10–15 minutes
+
+
+
+
+A fast-paced multiplayer game where ordinary MPs try to keep Parliament functioning while undercover Deep State
+agents sabotage operations, eliminate rivals and manipulate emergency votes.
+
+
+
+
+HACKATHON PRINCIPLE: Build one complete, fun match before adding extra roles or complex
+political systems.
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+ 1. Game Overview
+ NETAGIRI is a multiplayer social-deduction game set inside a fictional Indian Parliament. Players are secretly
+ assigned to one of two factions: Government or Deep State. Government players complete parliamentary tasks and
+ identify infiltrators. Deep State agents blend in, sabotage operations and eliminate government MPs.
+
+ The core experience combines the movement and task loop of an impostor game with the discussion, deception and
+ voting of Mafia. The political setting gives the game its own personality through parliamentary rooms, emergency
+ sessions and breaking-news announcements.
+
+ The central question: Who is working for the country, and who is secretly trying to bring down the
+ government?
+
+ Design goals
+ • Immediately understandable to first-time players.
+ • Fun with 6–10 people in a single match.
+ • Short rounds with frequent moments of suspicion and debate.
+ • A recognizable Parliament setting, not just a generic map reskin.
+ • Small enough to build, test and demo within eight hours.
+
+
+ 2. Story & Setting
+ India is facing a period of political instability. Parliament is in session and critical government operations must
+ continue. Unknown to most MPs, an underground organization called the Deep State has infiltrated Parliament. Its
+ agents are disguised as ordinary politicians. They intend to destabilize the government, eliminate influential MPs and
+ bring parliamentary operations to a standstill.
+
+ The remaining MPs must complete their duties, investigate suspicious activity, report eliminated colleagues and vote
+ out suspected infiltrators. Every player looks like a politician. No one can identify an agent by appearance alone.
+
+
+ 3. Factions & Roles
+  Faction              Purpose                                              Victory condition
+
+  Government           Ordinary MPs who keep Parliament operational,        Complete all tasks OR vote out every Deep
+                       complete tasks and identify infiltrators.            State agent.
+
+  Deep State           Undercover agents who sabotage operations,           Reach parity: living Deep State players equal
+                       eliminate MPs and avoid detection.                   or outnumber living Government players.
+
+
+ Suggested role distribution
+  Total players                          Government                            Deep State
+
+  6                                      4                                     2
+
+  7                                      5                                     2
+
+  8                                      6                                     2
+
+  9                                      6                                     3
+
+  10                                     7                                     3
+
+ Roles are assigned randomly at match start. Each player sees only their own role. Deep State agents know the
+ identities of their teammates; Government players do not know anyone's faction.
+
+
+
+
+                                                                                                                        Page 2
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+ 4. Parliament Map
+ Use one connected top-down map with five recognizable areas. These can be sections of one scene rather than
+ separate levels. Keep corridors short and routes easy to understand.
+
+  Area                              Gameplay purpose
+
+  Lok Sabha                         Emergency meetings, discussion and voting. The Speaker's chair is the focal point.
+
+  Prime Minister's Office           Administrative tasks such as approving government documents or passing a bill.
+
+  Finance Ministry                  Budget and financial tasks, such as verifying allocations or records.
+
+  Records Room                      Organizing files, retrieving missing documents and verifying records.
+
+  Central Hall                      Infrastructure tasks such as restoring power or repairing communications.
+
+
+ Map implementation guidance
+ • Build a single tile-based or image-based map with connected rooms.
+ • Add clear labels or signs for each area.
+ • Use walls and furniture as collision obstacles.
+ • Place task stations at visible, easy-to-reach points.
+ • Keep the Lok Sabha central enough that players can reach meetings quickly.
+
+
+ 5. Core Gameplay Mechanics
+ A. Parliamentary tasks
+ Government players receive a list of tasks distributed around Parliament. Completing a task increases a shared
+ Government task-progress meter. Deep State players can pretend to perform tasks, but their interactions do not
+ increase the meter.
+
+  Task                           Location                         Simple interaction
+
+  Approve the Budget             Finance Ministry                 Click documents in the correct order.
+
+  Pass the Bill                  PM Office                        Complete a short sequence puzzle.
+
+  Organize Files                 Records Room                     Match documents to folders.
+
+  Restore Power                  Central Hall                     Connect matching wire ends.
+
+  Verify Records                 Records Room                     Find matching document IDs.
+
+  Repair Communications          Central Hall                     Complete a simple circuit puzzle.
+
+ For the eight-hour build, implement only three task types. If time is short, a task can simply require a
+ player to interact and wait a few seconds. The shared progress meter should be visible to everyone.
+
+ B. Sabotage
+ Deep State players can trigger a small set of disruptive events. Start with two if development time is tight; add the
+ third only after the main loop works.
+
+  Sabotage                          Effect
+
+  Power Cut                         Temporarily reduces visibility or darkens the map.
+
+
+
+
+                                                                                                                         Page 3
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+  Sabotage                          Effect
+
+  Document Leak                     Temporarily disables a task station or interrupts an operation.
+
+  Communication Breakdown           Temporarily prevents emergency meetings or disrupts communications.
+
+ Sabotage should be triggered near a relevant object or through a role-specific action button. Broadcast a clear alert to
+ all players and, where applicable, provide a repair task.
+
+
+
+
+                                                                                                                    Page 4
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+ 5. Core Gameplay Mechanics (continued)
+ C. Elimination
+ Deep State agents can eliminate nearby Government MPs. For the MVP, make this an instant action rather than
+ building an attack animation.
+
+  Parameter                                       Suggested value
+
+  Elimination range                               Within 1 tile or a small radius
+
+  Kill cooldown                                   25 seconds
+
+  Body reporting                                  Any living player near the body
+
+  Eliminated player                               Movement and voting disabled
+
+ When a player is eliminated, leave a body marker on the map. A nearby player can report it, which starts an
+ emergency meeting. Ensure the server validates the target, range, role and cooldown.
+
+ D. Emergency meetings & voting
+ An emergency meeting can begin when a player reports a body or uses a meeting button. Limit emergency calls with
+ a cooldown or a small number of calls per player.
+
+  Phase                      What happens
+
+  1. Meeting                 All living players enter the meeting screen. Movement and actions pause.
+
+  2. Discussion              Players get 30–45 seconds to accuse, defend themselves and share information. Use text chat;
+                             voice chat is out of scope.
+
+  3. Voting                  Each living player selects one player or Skip Vote. Each player gets one vote.
+
+  4. Results                 The player with the most votes is removed. A tie means nobody is removed. Reveal the eliminated
+                             player's role.
+
+  5. Resume                  If no faction has won, return players to the map and resume the match.
+
+
+
+ 6. User Interface / HUD
+  UI element                            Purpose
+
+  Main map                              Shows Parliament, rooms, obstacles and player positions.
+
+  Player character                      The player's controlled politician sprite.
+
+  Task list                             Shows pending tasks for Government players.
+
+  Task progress                         Shared progress toward Government victory.
+
+  Living player count                   Shows how many players remain alive.
+
+  Meeting / Report buttons              Call a meeting or report a nearby body.
+
+  Action button                         Kill or sabotage action, depending on role.
+
+  News ticker                           Displays important game events.
+
+
+
+
+                                                                                                                            Page 5
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+ Government UI: task list, shared task progress, report button and emergency meeting button. Deep State UI:
+ elimination button, sabotage button, cooldown indicator, meeting button and teammate identities. Never reveal a
+ living player's role to other players.
+
+
+ 7. Match Lifecycle & Win Conditions
+  Stage                         Description
+
+  Lobby                         Players join using a room code. Host starts when ready.
+
+  Role assignment               Server randomly assigns factions and privately sends role information.
+
+  Playing                       Players move around Parliament, complete tasks, sabotage and investigate.
+
+  Meeting / Voting              Players discuss and vote when a body is reported or a meeting is called.
+
+  Game over                     Server checks victory conditions and sends everyone to the results screen.
+
+ Government wins when all shared tasks are complete OR all Deep State agents have been voted out.
+ Deep State wins when the number of living Deep State agents is equal to or greater than the number
+ of living Government players. Check these conditions after task completion, elimination and voting.
+
+
+
+
+                                                                                                                   Page 6
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+ 8. Breaking News System
+ A small news ticker gives the game a distinctive political-thriller identity. Whenever a major event occurs, display a
+ short message at the top of every player's screen.
+
+ Example headlines
+ • BREAKING: Parliament's electricity supply has been compromised!
+ • BREAKING: An MP has been found dead in the Finance Ministry!
+ • BREAKING: Emergency session called in Lok Sabha!
+ • BREAKING: Parliament has voted out a sitting MP!
+ • BREAKING: Government operations are back online!
+
+ Implementation: each important server-side game event emits a message; clients display the message for a few
+ seconds. This is a relatively inexpensive polish feature.
+
+
+ 9. End-Game Experience
+ Avoid a generic victory screen. Make the result feel like the end of a political drama.
+
+ Government victory — “Democracy survives!”
+ The Deep State conspiracy has been exposed. Parliament remains operational.
+
+ Deep State victory — “The government has fallen!”
+ Parliament has been infiltrated. The government has lost control.
+
+ Final reveal screen should show every player's character, faction and role, tasks completed, eliminations, meetings
+ attended and the winning team. This creates a satisfying conclusion and gives spectators a clear demo payoff.
+
+
+ 10. Technical Architecture
+ Reuse the existing multiplayer prototype and networking architecture. Do not rewrite working
+ networking code during the hackathon.
+
+  Layer                               Responsibilities
+
+  Player browsers                     Render the map and UI, capture keyboard input, display events and send player actions.
+
+  Multiplayer server                  Synchronize players and broadcast authoritative game events.
+
+  Game state                          Track player positions, roles, task progress, cooldowns, bodies, voting state and match status.
+
+ The server must be authoritative for role assignment, kill validation, task completion, voting results and win
+ conditions. Clients should request actions; the server validates and broadcasts accepted state changes.
+
+ Suggested game states
+ WAITING → ROLE_ASSIGNMENT → PLAYING → MEETING → VOTING → RESULTS
+ If no winner is determined after RESULTS, return to PLAYING. If a victory condition is met, transition
+ to GAME_OVER.
+
+
+ 11. Eight-Hour Hackathon Build Plan
+  Time                 Deliverable                              Definition of done
+
+  Hour 0–1             Lobby, room codes and roles              Players can join a room and receive private roles.
+
+  Hour 1–2             Parliament map and movement              Players move and collide with map obstacles.
+
+
+
+
+                                                                                                                                 Page 7
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+  Time          Deliverable                      Definition of done
+
+  Hour 2–3      Task system and mini-games       Tasks can be completed and progress synchronizes.
+
+  Hour 3–4      Elimination and sabotage         Deep State actions validate and affect all clients.
+
+  Hour 4–5      Reporting, meetings and voting   A complete report-to-vote cycle works.
+
+  Hour 5–6      Victory conditions and results   A match can end correctly for either faction.
+
+  Hour 6–7      UI, sound and news ticker        Game is understandable and presentable.
+
+  Hour 7–8      Testing and bug fixes            Full multiplayer match tested from lobby to reveal.
+
+
+
+
+                                                                                                       Page 8
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+ 12. Scope Control: Build Now vs. Later
+ Must build for the MVP
+ • Multiplayer lobby with room code.
+ • 6–10 players and random role assignment.
+ • One connected Parliament map and 2D movement.
+ • Government task list and shared progress meter.
+ • At least one Deep State sabotage action.
+ • Proximity-based elimination and body reporting.
+ • Emergency meeting, discussion timer and voting.
+ • Victory conditions and final role reveal.
+
+ Explicitly defer until after the hackathon
+ • Journalists, lobbyists and additional factions.
+ • Private messaging and complex alliances.
+ • Bribery, blackmail and individual secret agendas.
+ • Evidence collection, fake documents and scandal publishing.
+ • Election campaigns and parliamentary bill simulations.
+ • Multiple maps, progression systems and character abilities.
+ • Voice chat and elaborate animations.
+
+ If development falls behind, simplify task interactions first. A task can be a short interaction with a
+ progress timer. Do not remove multiplayer, meetings or voting: those are the heart of the experience.
+
+
+ 13. Demo Checklist
+ Before presenting, verify the following with multiple browser windows or devices:
+
+ ■ 6 or more players can join the same room.
+ ■ Roles are private and correctly assigned.
+ ■ Deep State teammates can identify one another.
+ ■ Movement is synchronized for all players.
+ ■ Government task progress updates consistently.
+ ■ Deep State can sabotage and eliminate within range.
+ ■ A body can be reported.
+ ■ Meeting pauses gameplay and voting works.
+ ■ Ties and skipped votes are handled correctly.
+ ■ Both factions can win under the correct conditions.
+ ■ Results reveal all roles and the winning faction.
+
+
+ 14. Final Product Pitch
+ NETAGIRI: Parliament Under Siege is a multiplayer social-deduction game set inside an Indian
+ Parliament. Players take on the roles of ordinary MPs or undercover Deep State agents. While
+ Government members work together to complete parliamentary operations, infiltrators secretly
+ sabotage the system and eliminate politicians. Through emergency sessions, accusations and
+ voting, players must figure out who is working for the country and who is secretly trying to destroy it.
+
+ Product identity
+ Genre: Multiplayer social deduction
+ Players: 6–10
+ Setting: Fictional Indian Parliament
+ Visual style: Retro 16-bit pixel art, top-down perspective
+
+
+
+                                                                                                    Page 9
+NETAGIRI | PARLIAMENT UNDER SIEGE
+
+
+
+
+ Core loop: Complete tasks → sabotage and investigate → report → debate → vote → reveal
+ Tagline: Power is temporary. Betrayal is permanent.
+
+
+ Final recommendation
+ Lock this version as the hackathon MVP. Focus on getting one complete match working from lobby to final reveal. A
+ polished, stable game with two factions, one map and a satisfying voting loop is stronger than a larger game with
+ unfinished mechanics.
+
+
+
+
+                                                                                                             Page 10
+

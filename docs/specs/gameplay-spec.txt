@@ -1,0 +1,1302 @@
+NETAGIRI
+
+PARLIAMENT UNDER SIEGE
+
+GAMEPLAY, CONTROLS, RULES & IMPLEMENTATION SPECIFICATION
+
+  -----------------------------------------------------------------------
+  Purpose of this document
+  This document starts after the game overview and visual reference pack.
+  It translates the agreed concept into implementable gameplay rules,
+  controls, interactions, mini-games, game-state logic, multiplayer
+  events, edge cases and an 8-hour build priority. Use it together with
+  the separate visual reference PDF.
+  -----------------------------------------------------------------------
+
+  -----------------------------------------------------------------------
+
+Target: a playable 6–10 player browser game with one connected
+Parliament map, two factions, tasks, sabotage, elimination, reporting,
+meetings, voting and a complete results screen.
+
+Core design principle: prioritize one complete, reliable match over
+feature breadth.
+
+Document map
+
+-   1. Product boundaries and assumptions
+
+-   2. Match configuration and faction rules
+
+-   3. Player controls and interaction model
+
+-   4. Interaction rules and proximity system
+
+-   5. Government task system
+
+-   6. Mini-games: design and implementation
+
+-   7. Deep State actions: elimination and sabotage
+
+-   8. Reporting, meetings, discussion and voting
+
+-   9. Game states, timers and win conditions
+
+-   10. Multiplayer architecture and authoritative validation
+
+-   11. UI behavior, feedback and accessibility
+
+-   12. Edge cases and anti-cheat rules
+
+-   13. Acceptance tests and demo checklist
+
+-   14. Eight-hour implementation sequence and cut line
+
+  -----------------------------------------------------------------------
+  Source of truth
+  The written rules in this document define behavior. The visual
+  reference pack defines appearance. If a generated visual contains
+  inconsistent labels, player counts, names or rules, follow this
+  document.
+  -----------------------------------------------------------------------
+
+  -----------------------------------------------------------------------
+
+1. Product boundaries and assumptions
+
+NETAGIRI is a real-time social deduction game set in a fictional Indian
+Parliament. Players move around a shared top-down map. Government
+members complete public-service tasks while hidden Deep State agents
+sabotage operations and eliminate Government players. Meetings create a
+social deduction loop in which living players discuss and vote.
+
+1.1 MVP scope
+
+  -----------------------------------------------------------------------
+  Included in MVP                     Explicitly out of scope
+  ----------------------------------- -----------------------------------
+  6–10 players; private role          Journalist/lobbyist factions;
+  assignment; one connected map;      private deals; bribery; blackmail;
+  movement and collision; task        evidence forgery; individual secret
+  stations; shared task progress; one agendas; voice chat; multiple maps;
+  or two sabotage actions; proximity  progression/economy; bots; complex
+  elimination; body reporting;        physics; elaborate combat
+  emergency meeting; text discussion; animations.
+  voting; victory checks;             
+  results/reveal.                     
+
+  -----------------------------------------------------------------------
+
+1.2 Design assumptions
+
+-   Use the existing tested multiplayer stack and room/lobby code
+    wherever possible.
+
+-   The server is authoritative for all consequential game state.
+    Clients render state and request actions.
+
+-   All players use the same movement speed in the MVP.
+
+-   Roles are assigned randomly at match start. Deep State players know
+    their teammates; Government players do not.
+
+-   Eliminated players cannot move, interact, vote or send information
+    to living players through in-game chat.
+
+-   Use keyboard-first desktop controls. Mobile controls are not
+    required for the hackathon MVP.
+
+2. Match configuration and faction rules
+
+2.1 Recommended player distribution
+
+  -----------------------------------------------------------------------
+  Total players           Government              Deep State
+  ----------------------- ----------------------- -----------------------
+  6                       4                       2
+
+  7                       5                       2
+
+  8                       6                       2
+
+  9                       6                       3
+
+  10                      7                       3
+  -----------------------------------------------------------------------
+
+If the existing prototype supports a different player range reliably,
+preserve it and adjust the table. Do not delay the build to support more
+than 10 players.
+
+2.2 Faction objectives
+
+  -----------------------------------------------------------------------
+  Faction                 Allowed actions         Victory condition
+  ----------------------- ----------------------- -----------------------
+  Government              Move; complete assigned Complete 100% of
+                          tasks; report bodies;   required team tasks OR
+                          call emergency          eliminate every Deep
+                          meetings; discuss;      State player by voting.
+                          vote.                   
+
+  Deep State              Move; pretend to do     At any victory check,
+                          tasks; eliminate        living Deep State count
+                          eligible nearby         is equal to or greater
+                          Government players;     than living Government
+                          trigger sabotage;       count.
+                          report bodies; call     
+                          meetings; discuss;      
+                          vote.                   
+  -----------------------------------------------------------------------
+
+2.3 Important fairness rules
+
+-   Deep State cannot increase Government task progress. Interacting
+    with a task station as Deep State may show a fake interaction
+    animation, but must not change the authoritative task state.
+
+-   Deep State cannot eliminate another Deep State teammate.
+
+-   Eliminated players do not count toward either faction's
+    living-player count.
+
+-   Voting ties and a Skip Vote plurality result in no elimination.
+
+-   Do not reveal the faction of a player who is still alive.
+
+-   Check victory conditions immediately after a task completion,
+    elimination, vote result and player disconnect.
+
+2.4 Suggested default match settings
+
+  -----------------------------------------------------------------------
+  Setting                 Default                 Notes
+  ----------------------- ----------------------- -----------------------
+  Target match length     10–15 minutes           Not a hard timer;
+                                                  victory conditions end
+                                                  the match.
+
+  Movement speed          Same for all players    Tune to map size; avoid
+                                                  speed advantages.
+
+  Elimination cooldown    25 seconds              Starts after a
+                                                  successful elimination.
+
+  Elimination range       1 tile / small          Validate on server.
+                          interaction radius      
+
+  Discussion timer        40 seconds              Begins when meeting
+                                                  screen opens.
+
+  Voting timer            20 seconds              Starts after
+                                                  discussion.
+
+  Emergency meeting       60 seconds              Per-player or global;
+  cooldown                                        choose one
+                                                  implementation and keep
+                                                  consistent.
+
+  Power disruption        15 seconds              Temporary; never
+                                                  permanently blocks
+                                                  tasks.
+
+  Task count              12–15 total progress    Distribute across
+                          units                   rooms; tune for actual
+                                                  player count.
+  -----------------------------------------------------------------------
+
+3. Player controls and interaction model
+
+3.1 Keyboard controls
+
+  -----------------------------------------------------------------------
+  Input                   Action                  Behavior
+  ----------------------- ----------------------- -----------------------
+  W / Up Arrow            Move up                 Continuous movement
+                                                  while held.
+
+  S / Down Arrow          Move down               Continuous movement
+                                                  while held.
+
+  A / Left Arrow          Move left               Continuous movement
+                                                  while held.
+
+  D / Right Arrow         Move right              Continuous movement
+                                                  while held.
+
+  E                       Interact                Opens the nearest valid
+                                                  task/object interaction
+                                                  within range.
+
+  Space                   Context action          Use for Report when
+                                                  near a body; otherwise
+                                                  optional contextual
+                                                  action. Avoid
+                                                  duplicating E if not
+                                                  needed.
+
+  M                       Map                     Toggle a simple map
+                                                  overlay if already
+                                                  supported; optional for
+                                                  MVP.
+
+  Esc                     Close overlay           Closes a task panel or
+                                                  non-critical overlay.
+                                                  Must not cancel a vote
+                                                  after confirmation.
+  -----------------------------------------------------------------------
+
+Do not require players to memorize many keys. E should be the universal
+interaction key. Visible on-screen buttons should also be clickable for
+players who do not use keyboard shortcuts.
+
+3.2 Contextual interaction priority
+
+1.  If a meeting is active, disable map movement and ordinary
+    interactions.
+
+2.  If the player is near a reportable body and presses Space or clicks
+    Report, report the body.
+
+3.  Otherwise, if the player is near a task station, E opens that task.
+
+4.  If the player is Deep State and near a valid sabotage object, show
+    the Sabotage action as a contextual option.
+
+5.  If the player is Deep State and near a valid living Government
+    target, show the Eliminate button, subject to cooldown.
+
+6.  If no valid target is nearby, show a short hint such as “Move closer
+    to interact.”
+
+3.3 Movement and collision
+
+-   Movement is top-down and synchronized. Use the existing movement
+    implementation if it is already stable.
+
+-   Prevent movement through walls, closed doors, desks, benches,
+    cabinets and other solid props.
+
+-   Diagonal movement should be normalized so diagonal travel is not
+    faster than horizontal or vertical travel.
+
+-   Players should not be able to move during role reveal, meeting
+    discussion, voting, results or game over.
+
+-   Use a small interaction radius around task stations, bodies and
+    sabotage objects. Display an interaction hint only when the player
+    is in range.
+
+-   Player sprites should face the last direction of movement. If
+    four-direction animation is available, switch between idle and walk
+    states.
+
+4. Interaction rules and object behavior
+
+  -----------------------------------------------------------------------
+  Object                  Who can use it          Interaction and result
+  ----------------------- ----------------------- -----------------------
+  Task station            Government; Deep State  E opens the assigned
+                          may fake interaction    mini-game. Only valid
+                                                  Government completion
+                                                  updates team progress.
+
+  Power panel             Government to repair;   Government opens
+                          Deep State to sabotage  Restore Power task
+                                                  during outage. Deep
+                                                  State can trigger Power
+                                                  Cut if available and
+                                                  off cooldown.
+
+  Document terminal       Government to perform   Starts document/file
+                          task; Deep State to     task or temporary
+                          sabotage if implemented Document Leak
+                                                  disruption.
+
+  Dead body               Any living player       Report button becomes
+                                                  active within range.
+                                                  Reporting starts
+                                                  meeting and marks that
+                                                  body as reported.
+
+  Emergency meeting       Any living player, if   Starts a meeting if no
+  button                  available               meeting is active and
+                                                  cooldown/rules permit.
+
+  Living player           Deep State only for     Eliminate appears
+                          elimination             within range if target
+                                                  is Government and
+                                                  killer cooldown is
+                                                  ready.
+
+  Meeting player card     Living players during   Select target; confirm
+                          voting                  vote once. Can choose
+                                                  Skip Vote.
+
+  Door / corridor         All players             Passage only; do not
+                                                  add door locking
+                                                  mechanics in MVP.
+  -----------------------------------------------------------------------
+
+4.1 Interaction feedback
+
+-   Show a small “Press E to interact” prompt when in range.
+
+-   Show object name and action label, e.g. “Budget Terminal — Approve
+    the Bill”.
+
+-   On successful interaction, play a short sound and display a
+    confirmation.
+
+-   On invalid interaction, display a concise reason: “Too far away”,
+    “Task unavailable”, “Cooldown: 8s”, or “Meeting in progress”.
+
+-   Do not rely on color alone. Use labels/icons as well as green/red
+    state.
+
+5. Government task system
+
+Tasks are the Government team's primary route to victory. The game
+assigns a fixed set of task instances across Parliament. Each task has a
+unique ID, location, type, completion state and progress value.
+
+5.1 Task lifecycle
+
+7.  At match start, server creates the task list and assigns task
+    instances to the match.
+
+8.  Government clients receive their task list and locations. Deep State
+    clients may see the same task locations for deception, but must not
+    be able to complete them for the Government.
+
+9.  Player approaches a task station and presses E.
+
+10. Client opens the relevant mini-game UI and submits progress or a
+    completion request.
+
+11. Server validates player faction, task ID, distance, task state and
+    any required answer.
+
+12. Server marks the task complete once, increments shared progress and
+    broadcasts the updated count.
+
+13. All clients update the progress bar and task list.
+
+5.2 Task data fields
+
+  -----------------------------------------------------------------------
+  Field                               Meaning
+  ----------------------------------- -----------------------------------
+  taskId                              Unique identifier for this task
+                                      instance.
+
+  type                                FILE_SORT, RESTORE_POWER,
+                                      APPROVE_BILL or another supported
+                                      mini-game type.
+
+  roomId                              Room in which the task station
+                                      exists.
+
+  position                            World coordinates of the station.
+
+  status                              AVAILABLE, IN_PROGRESS or COMPLETE.
+
+  assignedTo                          Optional player ID if tasks are
+                                      individually assigned; otherwise
+                                      null/shared.
+
+  completionPayload                   Validated answer or completion data
+                                      submitted by client.
+  -----------------------------------------------------------------------
+
+5.3 Task rules
+
+-   Each task can be completed only once.
+
+-   Task progress is a server-owned integer: completedTasks /
+    totalTasks.
+
+-   Progress must not exceed 100%. Duplicate completion requests are
+    ignored.
+
+-   Task UI closes if a meeting starts or the player is eliminated.
+
+-   If a sabotage event temporarily disables a task station, show its
+    unavailable state and allow retry after the disruption ends.
+
+-   Do not make tasks depend on precise timing or fast reflexes; simple,
+    reliable puzzles are better for the MVP.
+
+6. Mini-games: design and implementation
+
+Implement three small modal mini-games. They should open over the map,
+not load separate scenes. Each should take approximately 5–12 seconds
+and have a clear success state.
+
+6.1 Mini-game A — File Sorting
+
+Fantasy: A parliamentary clerk has mixed up government files. The player
+must place each file into the correct folder.
+
+  -----------------------------------------------------------------------
+  Element                             Specification
+  ----------------------------------- -----------------------------------
+  Location                            Records Room or PM Office.
+
+  UI                                  Three folder targets labelled
+                                      Budget, Defence and Welfare; three
+                                      draggable document cards.
+
+  Input                               Drag a document onto a folder. For
+                                      keyboard-only fallback, click
+                                      document then click folder.
+
+  Success                             All documents are assigned to the
+                                      correct folders.
+
+  Failure                             Incorrect placement returns the
+                                      document to its starting position
+                                      and gives brief feedback.
+
+  Server validation                   Submit mapping of document IDs to
+                                      folder IDs. Server checks exact
+                                      correct mapping and task is still
+                                      available.
+
+  Completion                          On valid mapping, mark task
+                                      complete and update team progress.
+  -----------------------------------------------------------------------
+
+Implementation outline:
+
+14. Generate a small fixed puzzle configuration when task opens (or use
+    one predefined puzzle for MVP).
+
+15. Render document cards and folder drop targets in a modal.
+
+16. Track each document's selected/dragged state locally.
+
+17. On Submit, send taskId and the mapping to the server.
+
+18. Server validates the mapping and responds success/failure.
+
+19. On success, close modal, play success feedback and update progress.
+
+6.2 Mini-game B — Restore Power / Wire Matching
+
+Fantasy: A power panel has disconnected circuits. The player connects
+matching colored terminals.
+
+  -----------------------------------------------------------------------
+  Element                             Specification
+  ----------------------------------- -----------------------------------
+  Location                            Central Hall.
+
+  UI                                  Three colored input terminals on
+                                      the left and three matching outputs
+                                      on the right.
+
+  Input                               Click a left terminal, then click
+                                      its matching right terminal;
+                                      dragging can be added if easy.
+
+  Success                             All three color pairs are connected
+                                      correctly.
+
+  Failure                             Incorrect pair is rejected with a
+                                      small shake/flash; allow retry.
+
+  Server validation                   Submit pair mapping; server checks
+                                      that each color maps to its
+                                      matching output.
+
+  Completion                          Task completes and shared progress
+                                      increases.
+  -----------------------------------------------------------------------
+
+Implementation outline:
+
+20. Render three colored source nodes and three destination nodes in
+    shuffled vertical order.
+
+21. Player selects a source and then a destination.
+
+22. Draw a line between selected nodes.
+
+23. Allow clearing/replacing a connection.
+
+24. Submit the three connections for server validation.
+
+25. During a Power Cut, this can be the repair task. Do not let the
+    outage prevent access to the repair panel.
+
+6.3 Mini-game C — Approve the Bill / Sequence Memory
+
+Fantasy: The player must approve a bill by repeating a short sequence of
+parliamentary symbols.
+
+  -----------------------------------------------------------------------
+  Element                             Specification
+  ----------------------------------- -----------------------------------
+  Location                            PM Office or Finance Ministry.
+
+  UI                                  Four large symbol buttons (e.g.
+                                      book, rupee, building, flag) and a
+                                      short sequence display.
+
+  Input                               Game flashes a sequence of 3–5
+                                      symbols; player clicks the same
+                                      symbols in order.
+
+  Success                             Player enters the full sequence
+                                      correctly.
+
+  Failure                             Wrong symbol resets the attempt and
+                                      shows “Try again”; do not punish
+                                      with a long delay.
+
+  Server validation                   Submit sequence; server compares
+                                      with the puzzle sequence associated
+                                      with taskId.
+
+  Completion                          Valid sequence marks task complete.
+  -----------------------------------------------------------------------
+
+Implementation outline:
+
+26. Create a sequence of 3 symbols for the easiest MVP difficulty.
+
+27. Display the sequence briefly, then hide it.
+
+28. Enable symbol buttons and record player input.
+
+29. Compare submitted sequence with the server-held answer.
+
+30. On failure, allow one or more retries.
+
+31. On success, complete task and close the modal.
+
+6.4 If time is running out: fallback task
+
+  -----------------------------------------------------------------------
+  Fallback
+  Replace the mini-game with a simple hold-to-complete interaction:
+  player presses E at a task station, a 3–5 second progress bar appears,
+  and the server completes the task if the player remains in range and
+  the task is still active. This is preferable to shipping broken
+  puzzles.
+  -----------------------------------------------------------------------
+
+  -----------------------------------------------------------------------
+
+6.5 Mini-game common requirements
+
+-   All mini-games must be usable with mouse clicks; keyboard support is
+    optional beyond the main controls.
+
+-   Pause or close the mini-game if the player is eliminated or a
+    meeting starts.
+
+-   Prevent multiple players from completing the same task instance
+    simultaneously unless tasks are explicitly shared.
+
+-   Server must validate task completion; never trust a client-only
+    “success” flag.
+
+-   Show task name, concise instructions, progress/state and a close
+    button.
+
+-   Do not create complex physics, drag precision or long multi-step
+    puzzles.
+
+7. Deep State actions
+
+7.1 Eliminate
+
+  -----------------------------------------------------------------------
+  Rule                                Implementation
+  ----------------------------------- -----------------------------------
+  Eligible actor                      Living Deep State player.
+
+  Eligible target                     Living Government player only.
+
+  Range                               Target must be within configured
+                                      elimination radius.
+
+  Cooldown                            25 seconds after a successful
+                                      elimination.
+
+  Action                              Player clicks Eliminate or presses
+                                      contextual action when target is
+                                      eligible.
+
+  Result                              Server marks target eliminated,
+                                      creates a body at target position,
+                                      updates living counts and
+                                      broadcasts event.
+
+  Invalid attempts                    Reject if target is too far,
+                                      already eliminated, same faction,
+                                      actor dead, meeting active or
+                                      cooldown active.
+  -----------------------------------------------------------------------
+
+The client may show a local cooldown countdown, but the server owns the
+real cooldown timestamp. A rejected action must not consume cooldown.
+
+7.2 Sabotage
+
+For an eight-hour MVP, implement one reliable sabotage action first. Add
+a second only after the core match loop works.
+
+  -----------------------------------------------------------------------
+  Sabotage          Effect            Repair / duration Priority
+  ----------------- ----------------- ----------------- -----------------
+  Power Cut         Temporarily       15 seconds or     Must-have if time
+                    darken or reduce  until a simple    allows
+                    visibility across repair            
+                    the map;          interaction is    
+                    optionally        completed.        
+                    disable selected                    
+                    stations.                           
+
+  Document Leak     Temporarily       10–15 seconds,    Optional
+                    disables one task then station      
+                    station or        returns to        
+                    interrupts one    normal.           
+                    task.                               
+
+  Communication     Temporarily       10–15 seconds;    Skip if time is
+  Breakdown         prevents new      existing meeting  tight
+                    emergency meeting continues         
+                    calls.            normally.         
+  -----------------------------------------------------------------------
+
+Power Cut implementation:
+
+32. Deep State approaches the power panel and selects Sabotage when
+    cooldown and match state allow.
+
+33. Server validates faction, range, sabotage availability and cooldown.
+
+34. Server sets powerStatus = OUT and powerRestoreAt = current time +
+    duration.
+
+35. All clients receive POWER_SABOTAGED and show a visual overlay/news
+    alert.
+
+36. After the duration, server sets powerStatus = ON and broadcasts
+    POWER_RESTORED.
+
+37. Optional: Government can restore power early by completing the
+    Restore Power task.
+
+Do not implement screen-wide darkness if it makes the game unplayable or
+hard to demo. A red warning overlay and disabled station indicator are
+acceptable substitutes.
+
+7.3 Fake task behavior
+
+Deep State may stand near a task and trigger a harmless fake interaction
+animation to blend in. It must never increment shared progress. This can
+be omitted entirely if it complicates the task system.
+
+8. Reporting, meetings, discussion and voting
+
+8.1 Reporting a body
+
+38. Living player enters report radius of an unreported body.
+
+39. Report button becomes enabled and the body marker may pulse.
+
+40. Player clicks Report or presses Space.
+
+41. Server validates body exists, is unreported, player is alive and
+    within range.
+
+42. Server marks body reported and transitions match to MEETING.
+
+43. All living players are moved to the meeting screen; map actions
+    pause.
+
+8.2 Emergency meeting
+
+-   Any living player can call an emergency meeting if the meeting
+    button is available.
+
+-   Use a cooldown or one meeting token per player. For the MVP, a
+    global cooldown is simplest.
+
+-   Only one meeting can be active at a time.
+
+-   Dead players cannot call or participate in meetings.
+
+-   Reporting a body should bypass the emergency-button cooldown.
+
+8.3 Meeting phases and timers
+
+  -----------------------------------------------------------------------
+  Phase                   Default duration        Behavior
+  ----------------------- ----------------------- -----------------------
+  Transition              2 seconds               Freeze map and show
+                                                  meeting
+                                                  animation/title.
+
+  Discussion              40 seconds              Living players see
+                                                  player list and text
+                                                  chat; no votes yet, or
+                                                  allow early voting only
+                                                  if desired.
+
+  Voting                  20 seconds              Players select one
+                                                  living player or Skip
+                                                  Vote and confirm.
+
+  Results                 4 seconds               Show vote tally and
+                                                  eliminated player, if
+                                                  any; reveal role.
+
+  Resume                  2 seconds               Return living players
+                                                  to map and restore game
+                                                  timer/actions.
+  -----------------------------------------------------------------------
+
+8.4 Voting rules
+
+-   Each living player can submit one vote per meeting.
+
+-   Vote options include all living players except the voter (self-vote
+    can be enabled, but default is disabled) and Skip Vote.
+
+-   Vote is final after confirmation. Allow changing a vote only before
+    confirmation.
+
+-   If a player does not vote before timer ends, count as no vote; do
+    not automatically choose a target.
+
+-   Player with the highest number of votes is eliminated only if their
+    votes exceed every other option and Skip Vote.
+
+-   If there is a tie for highest votes, nobody is eliminated.
+
+-   After results, reveal the eliminated player's faction to all
+    remaining players.
+
+8.5 Text chat
+
+Use simple text chat during discussion only. Chat is not required for
+the first playable build if time is short; players can discuss verbally
+in the room during the demo. If chat is implemented, restrict it to
+living players in the current meeting. Do not allow dead players to
+message living players.
+
+8.6 Disconnect during meeting
+
+If a player disconnects before voting, mark them disconnected and
+exclude them from remaining votes. If they disconnect after casting a
+vote, preserve the vote. Recalculate majority/tie outcome using eligible
+submitted votes.
+
+9. Game states, timers and victory logic
+
+9.1 Match state machine
+
+  -----------------------------------------------------------------------
+  State                   Entry condition         Allowed behavior
+  ----------------------- ----------------------- -----------------------
+  WAITING                 Room created; players   Join/leave, choose
+                          join.                   character, host starts.
+
+  ROLE_ASSIGNMENT         Host starts with valid  Private role delivery;
+                          player count.           no movement.
+
+  PLAYING                 Role reveal ends.       Move, tasks, sabotage,
+                                                  eliminate, report,
+                                                  meeting call.
+
+  MEETING_TRANSITION      Valid report or meeting Freeze map and show
+                          call.                   transition.
+
+  DISCUSSION              Meeting screen opens.   Discussion/chat only.
+
+  VOTING                  Discussion timer ends.  Submit one vote or
+                                                  skip.
+
+  VOTE_RESULTS            Voting timer ends or    Show tally and
+                          all eligible votes      elimination.
+                          received.               
+
+  GAME_OVER               Victory condition met.  Freeze all actions;
+                                                  show results and role
+                                                  reveal.
+  -----------------------------------------------------------------------
+
+9.2 Victory-check pseudocode
+
+  function checkVictory(state):
+  livingGovernment = count(living players with faction GOVERNMENT)
+  livingDeepState = count(living players with faction DEEP_STATE)
+  if completedTasks >= totalTasks:
+  return GOVERNMENT_WINS
+  if livingDeepState == 0:
+  return GOVERNMENT_WINS
+  if livingDeepState >= livingGovernment:
+  return DEEP_STATE_WINS
+  return NO_WINNER
+
+9.3 Check timing
+
+-   After each successful task completion.
+
+-   After each successful elimination.
+
+-   After each vote result and ejection.
+
+-   After a player disconnects or is removed from the match.
+
+-   At match start after roles are assigned, to ensure configuration is
+    valid.
+
+  -----------------------------------------------------------------------
+  Zero-player edge case
+  If all players disconnect or the host leaves, close the match safely
+  and return remaining connected clients to the lobby or show a
+  room-closed message. Do not leave the game stuck in PLAYING.
+  -----------------------------------------------------------------------
+
+  -----------------------------------------------------------------------
+
+10. Multiplayer architecture and server validation
+
+Preserve the existing working multiplayer stack. The following is a
+logical responsibility model, not a requirement to adopt a new
+framework.
+
+10.1 Client responsibilities
+
+-   Render map, characters, animations, HUD, task modal, meeting screen
+    and results.
+
+-   Capture keyboard/mouse input and send movement/action requests.
+
+-   Display server-approved state updates and event notifications.
+
+-   Show local countdowns for cooldowns and timers based on server
+    timestamps.
+
+10.2 Server responsibilities
+
+-   Create rooms and manage player membership.
+
+-   Assign factions privately and maintain teammate visibility rules.
+
+-   Validate movement boundaries or at minimum validate all
+    consequential action positions.
+
+-   Validate task completion, elimination, sabotage, body reporting and
+    meeting calls.
+
+-   Own timers, cooldowns, votes, task progress, player alive status and
+    victory conditions.
+
+-   Broadcast only the information each client is allowed to see.
+
+10.3 Suggested server events
+
+  ---------------------------------------------------------------------------
+  Event                      Direction               Purpose
+  -------------------------- ----------------------- ------------------------
+  PLAYER_JOINED              Server → room           Update lobby roster.
+
+  PLAYER_LEFT                Server → room           Update roster; handle
+                                                     match disconnect.
+
+  GAME_STARTED               Server → room           Begin role reveal and
+                                                     match.
+
+  ROLE_ASSIGNED              Server → individual     Send player's own role;
+                                                     send Deep State teammate
+                                                     IDs only to Deep State.
+
+  PLAYER_MOVED               Client → server; server Synchronize player
+                             → room                  position.
+
+  TASK_OPENED                Client → server         Request task
+                                                     interaction; server
+                                                     validates range and
+                                                     eligibility.
+
+  TASK_COMPLETED             Client → server; server Submit answer; server
+                             → room                  validates and broadcasts
+                                                     progress.
+
+  SABOTAGE_REQUEST           Client → server         Request sabotage; server
+                                                     validates and applies
+                                                     effect.
+
+  PLAYER_ELIMINATE_REQUEST   Client → server         Request elimination;
+                                                     server validates
+                                                     target/range/cooldown.
+
+  PLAYER_ELIMINATED          Server → room           Mark dead, create body,
+                                                     update counts.
+
+  BODY_REPORTED              Client → server; server Validate report and
+                             → room                  begin meeting.
+
+  MEETING_STARTED            Server → room           Freeze gameplay and open
+                                                     meeting UI.
+
+  VOTE_SUBMITTED             Client → server         Submit one vote.
+
+  VOTE_RESULTS               Server → room           Broadcast tally and
+                                                     ejection result.
+
+  GAME_OVER                  Server → room           Announce winner and
+                                                     final reveal.
+  ---------------------------------------------------------------------------
+
+10.4 Privacy and validation
+
+-   Never broadcast the full role map to all clients. Send each player
+    only their own faction; send teammate identities only to Deep State
+    members.
+
+-   Do not trust client-supplied faction, alive status, cooldown, task
+    completion or vote count.
+
+-   Validate every action against current match state and authenticated
+    player ID.
+
+-   Reject duplicate task completion, duplicate votes and repeated body
+    reports.
+
+-   Sanitize chat text and enforce message length/rate limits if chat is
+    added.
+
+11. UI behavior and feedback
+
+11.1 Gameplay HUD
+
+  -----------------------------------------------------------------------
+  Element                             Display rules
+  ----------------------------------- -----------------------------------
+  Task panel                          Visible to Government; show
+                                      completed/total and remaining
+                                      tasks. Deep State can see a neutral
+                                      status or a fake task list if
+                                      needed.
+
+  Task progress bar                   Shared and visible to all; update
+                                      only from server-approved
+                                      completions.
+
+  Player counter                      Show living player count, not
+                                      secret factions.
+
+  News ticker                         Show concise public events:
+                                      sabotage, body reported, meeting
+                                      called, vote result, power
+                                      restored.
+
+  Action buttons                      Only show actions relevant to
+                                      player's role and current
+                                      proximity/cooldown.
+
+  Cooldown indicator                  Show seconds remaining; server
+                                      timestamp is authoritative.
+
+  Interaction prompt                  Appears near valid
+                                      object/player/body; disappears when
+                                      out of range.
+
+  Meeting button                      Disabled while meeting active,
+                                      player dead, or cooldown
+                                      unavailable.
+  -----------------------------------------------------------------------
+
+11.2 Lobby behavior
+
+-   Display room code with copy action.
+
+-   Show connected player names and ready/connected indicators.
+
+-   Allow cosmetic character selection.
+
+-   Show minimum player requirement and current count.
+
+-   Only host sees Start Game enabled; disable until minimum player
+    count is reached.
+
+-   If host disconnects, either assign a new host or close the room. Use
+    whichever behavior is already easiest in the current architecture.
+
+11.3 Role reveal behavior
+
+-   Show only the local player's faction and short objective.
+
+-   Deep State sees teammate names/avatars; Government sees no teammate
+    identities.
+
+-   Hold screen for approximately 3–5 seconds or allow Continue.
+
+-   Do not show role details in shared lobby or public event logs.
+
+11.4 Feedback and accessibility
+
+-   Every important action should have visual feedback and, where
+    practical, a short sound.
+
+-   Use text labels with icons; do not rely on color alone to
+    communicate faction or action.
+
+-   Keep interaction buttons large enough to click.
+
+-   Use readable text even if headings use pixel fonts.
+
+-   Provide clear disabled-state reasons such as “Too far away”,
+    “Cooldown: 6s”, or “Meeting in progress”.
+
+12. Edge cases and anti-cheat rules
+
+  -----------------------------------------------------------------------
+  Situation                           Required behavior
+  ----------------------------------- -----------------------------------
+  Player disconnects while alive      Mark disconnected; remove from
+                                      living count after a short grace
+                                      period or immediately. Re-check
+                                      victory.
+
+  Player reconnects                   For MVP, simplest is rejoin as
+                                      spectator or return to lobby; do
+                                      not restore secret role unless
+                                      reconnection is already supported.
+
+  Player disconnects during voting    Exclude from future votes; preserve
+                                      a vote already submitted.
+
+  Two players try to complete same    First valid server request wins;
+  task                                reject the duplicate.
+
+  Two agents try to eliminate same    Only first valid server request
+  target                              succeeds; second is rejected
+                                      because target is no longer alive.
+
+  Kill requested during meeting       Reject because match state is not
+                                      PLAYING.
+
+  Task completion requested after     Reject because task actions are
+  match ends                          disabled.
+
+  Body reported twice                 Only first valid report starts the
+                                      meeting.
+
+  Vote submitted twice                Accept first confirmed vote; reject
+                                      later submissions.
+
+  Voting tie                          No ejection; resume play unless
+                                      another win condition has been met.
+
+  All Government eliminated           Deep State wins through parity
+                                      check.
+
+  All Deep State eliminated           Government wins.
+
+  Task total is zero due to setup bug Prevent match start or set a valid
+                                      task list; never auto-award a task
+                                      victory unintentionally.
+  -----------------------------------------------------------------------
+
+12.1 Anti-cheat minimum
+
+-   Server-side role and action validation.
+
+-   Server-side cooldown timestamps.
+
+-   Server-side task answer validation.
+
+-   Server-side voting tally.
+
+-   Server-side victory calculation.
+
+-   Basic rate limiting for repeated action requests.
+
+13. Acceptance tests and demo checklist
+
+A feature is not done when its screen exists. It is done when it works
+for multiple players and the server state remains consistent.
+
+-   ☐ At least six players can join the same room using a room code.
+
+-   ☐ Host can start a match and all clients transition to role reveal.
+
+-   ☐ Government players see their own role; Deep State players see
+    their own role and teammates.
+
+-   ☐ Player positions synchronize across all connected clients.
+
+-   ☐ Players cannot walk through walls or furniture.
+
+-   ☐ Government can open and complete a task; progress updates for
+    everyone.
+
+-   ☐ Deep State cannot increase Government task progress.
+
+-   ☐ Deep State can eliminate a nearby Government player when cooldown
+    is ready.
+
+-   ☐ Deep State cannot eliminate a teammate, dead player or distant
+    player.
+
+-   ☐ Successful elimination creates exactly one reportable body.
+
+-   ☐ Living player can report a nearby body and meeting starts for
+    everyone.
+
+-   ☐ Movement and actions are disabled during meeting.
+
+-   ☐ Voting accepts one vote per living player and correctly handles
+    skip and ties.
+
+-   ☐ Correct role is revealed after ejection.
+
+-   ☐ Government wins at full task progress or when all Deep State
+    agents are eliminated.
+
+-   ☐ Deep State wins when living agents equal or outnumber living
+    Government players.
+
+-   ☐ Results screen shows correct winner and all player roles.
+
+-   ☐ Disconnects do not leave the match permanently stuck.
+
+14. Eight-hour implementation sequence
+
+  -----------------------------------------------------------------------
+  Time block              Build target            Must be demonstrable
+                                                  before moving on
+  ----------------------- ----------------------- -----------------------
+  0:00–1:00               Inspect existing code;  Multiple clients join
+                          preserve working        and receive correct
+                          networking; verify      private roles.
+                          lobby and room joining; 
+                          implement private role  
+                          assignment.             
+
+  1:00–2:00               Parliament map, player  Players move together
+                          movement, collision and on the same map.
+                          synchronization.        
+
+  2:00–3:00               Task stations, modal    Government can complete
+                          interaction and shared  a task and all clients
+                          progress; implement     see progress.
+                          fallback                
+                          hold-to-complete first. 
+
+  3:00–4:00               Deep State elimination, Valid elimination and
+                          cooldown and one        sabotage work; invalid
+                          sabotage action.        actions are rejected.
+
+  4:00–5:00               Body reporting, meeting Full report-to-vote
+                          transition, discussion  cycle works.
+                          timer, voting and       
+                          results.                
+
+  5:00–6:00               Victory checks, final   A complete match can
+                          reveal, disconnect      end correctly for
+                          handling and state      either side.
+                          transitions.            
+
+  6:00–7:00               Polish HUD, news        Game is clear and
+                          ticker, sound effects,  presentable.
+                          role reveal and         
+                          feedback.               
+
+  7:00–8:00               Run multiplayer tests,  A complete match has
+                          fix critical bugs,      been tested from lobby
+                          prepare demo room and   to final reveal.
+                          reset flow.             
+  -----------------------------------------------------------------------
+
+14.1 Priority cut line
+
+  -----------------------------------------------------------------------
+  Priority                            Features
+  ----------------------------------- -----------------------------------
+  P0 — Must work                      Room/lobby; role assignment;
+                                      movement; shared map; task
+                                      progress; elimination; report;
+                                      meeting; voting; win conditions;
+                                      results.
+
+  P1 — Add if stable                  One sabotage; one or two real
+                                      mini-games; breaking-news ticker;
+                                      basic sound effects.
+
+  P2 — Skip for hackathon             Second/third sabotage; elaborate
+                                      animations; full chat; advanced map
+                                      overlay; complex puzzle variety;
+                                      cosmetics beyond simple selection.
+  -----------------------------------------------------------------------
+
+  -----------------------------------------------------------------------
+  Final build rule
+  At hour 6, stop adding features. Use the remaining two hours to test
+  and stabilize the complete match. A small complete game is a stronger
+  hackathon submission than a large collection of half-working screens.
+  -----------------------------------------------------------------------
+
+  -----------------------------------------------------------------------
+
+Appendix A — Suggested event messages
+
+  -----------------------------------------------------------------------
+  Trigger                             News ticker text
+  ----------------------------------- -----------------------------------
+  Power sabotage                      BREAKING: Parliament's power supply
+                                      has been compromised!
+
+  Document disruption                 ALERT: Parliamentary records access
+                                      has been disrupted!
+
+  Body reported                       BREAKING: An MP has been found.
+                                      Emergency session called!
+
+  Meeting begins                      LOK SABHA: Emergency session is now
+                                      in progress.
+
+  Player voted out                    PARLIAMENT: A sitting MP has been
+                                      voted out.
+
+  Power restored                      UPDATE: Parliamentary power has
+                                      been restored.
+
+  Government victory                  DEMOCRACY SURVIVES: The
+                                      infiltrators have been exposed.
+
+  Deep State victory                  GOVERNMENT COLLAPSES: Parliament
+                                      has fallen under covert control.
+  -----------------------------------------------------------------------
+
+Appendix B — Implementation notes for the coding agent
+
+-   Read the existing repository before changing code. Identify the
+    framework, multiplayer transport, room model and current working
+    features.
+
+-   Do not replace or rewrite working multiplayer infrastructure unless
+    it is demonstrably broken.
+
+-   Implement features in the order in Section 14 and keep the game
+    runnable after each stage.
+
+-   Use the written rules in this document as the behavioral source of
+    truth and the visual reference PDF as the appearance source of
+    truth.
+
+-   Do not invent additional factions, mechanics or screens without
+    asking; the 8-hour scope is fixed.
+
+-   After implementation, report which acceptance tests passed, which
+    failed and what remains incomplete. Never claim a test passed unless
+    it was actually run.

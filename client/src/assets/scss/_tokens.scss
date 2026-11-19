@@ -1,0 +1,34 @@
+// Visual Reference Pack — Board 3 colour palette & fonts.
+// Use the CSS custom properties in components; SCSS vars are for this file only.
+$navy: #1b2b3d;      // Primary
+$green: #607b57;     // Parliament Green
+$beige: #d8c8a4;     // Paper Beige
+$red: #a8463d;       // Alert Red
+$gold: #f2c14e;      // Accent
+
+:root {
+  --c-primary: #{$navy};
+  --c-primary-deep: #111c28;
+  --c-green: #{$green};
+  --c-beige: #{$beige};
+  --c-red: #{$red};
+  --c-accent: #{$gold};
+  --c-ink: #f4ecd8;
+  --c-ink-muted: #b9ad90;
+  --c-wood: #4a2e1f;
+  --c-panel: #22344a;
+  --c-panel-border: #8a6b3b;
+
+  --f-heading: 'Press Start 2P', monospace; // headings, UI
+  --f-body: 'VT323', monospace;             // body, labels
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-6: 24px;
+  --s-8: 32px;
+
+  --radius: 2px;
+  --shadow-pixel: 4px 4px 0 rgba(0, 0, 0, 0.45);
+}
