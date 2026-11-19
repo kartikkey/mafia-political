@@ -1,10 +1,10 @@
 /**
  * Server → client event bridge. The ONLY place socket listeners are
- * registered; each event maps to a slice action.
+ * registered; each event maps to a slice action (+ a short sound cue).
  */
 import type { Dispatch } from '@reduxjs/toolkit'
 import type { GameSocket } from './gameSocket'
-import { setConnected } from 'slices/join/reducer'
+import { connectionLost, setConnected } from 'slices/join/reducer'
 import { lobbyUpdated, roomClosed } from 'slices/lobby/reducer'
 import {
   cooldownUpdated,
@@ -17,28 +17,57 @@ import {
 } from 'slices/game/reducer'
 import { chatReceived, meetingStarted, voteCast, voteResults } from 'slices/meeting/reducer'
 import { gameOverReceived } from 'slices/results/reducer'
+import { playSound } from 'helpers/sound'
 
-export function bindServerEvents(socket: GameSocket, dispatch: Dispatch) {
+export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId: () => string | null) {
   socket.on('connect', () => dispatch(setConnected(true)))
-  socket.on('disconnect', () => dispatch(setConnected(false)))
+  socket.on('disconnect', () => {
+    dispatch(setConnected(false))
+    dispatch(connectionLost())
+  })
 
   socket.on('LOBBY_UPDATED', (lobby) => dispatch(lobbyUpdated(lobby)))
   socket.on('ROOM_CLOSED', ({ reason }) => dispatch(roomClosed(reason)))
 
-  socket.on('GAME_STARTED', (view) => dispatch(matchUpdated(view)))
+  socket.on('GAME_STARTED', (view) => {
+    playSound('start')
+    dispatch(matchUpdated(view))
+  })
   socket.on('MATCH_STATE', (view) => dispatch(matchUpdated(view)))
   socket.on('ROLE_ASSIGNED', (role) => dispatch(roleAssigned(role)))
   socket.on('PLAYER_MOVED', (p) => dispatch(playerMoved(p)))
 
   socket.on('TASK_PROGRESS', (p) => dispatch(taskProgress(p)))
-  socket.on('PLAYER_ELIMINATED', (p) => dispatch(playerEliminated(p)))
+  socket.on('PLAYER_ELIMINATED', (p) => {
+    playSound('eliminate')
+    dispatch(playerEliminated({ body: p.body, meId: getMeId() }))
+  })
   socket.on('COOLDOWN', (p) => dispatch(cooldownUpdated(p)))
 
-  socket.on('MEETING_STARTED', (p) => dispatch(meetingStarted(p)))
-  socket.on('CHAT_MESSAGE', (m) => dispatch(chatReceived(m)))
-  socket.on('VOTE_CAST', ({ voterId }) => dispatch(voteCast(voterId)))
-  socket.on('VOTE_RESULTS', (t) => dispatch(voteResults(t)))
+  socket.on('MEETING_STARTED', (p) => {
+    playSound('siren')
+    dispatch(meetingStarted(p))
+  })
+  socket.on('CHAT_MESSAGE', (m) => {
+    playSound('chat')
+    dispatch(chatReceived(m))
+  })
+  socket.on('VOTE_CAST', ({ voterId }) => {
+    playSound('vote')
+    dispatch(voteCast(voterId))
+  })
+  socket.on('VOTE_RESULTS', (t) => {
+    playSound(t.ejectedPlayerId ? 'eject' : 'vote')
+    dispatch(voteResults(t))
+  })
 
-  socket.on('NEWS', (n) => dispatch(newsReceived(n)))
-  socket.on('GAME_OVER', (p) => dispatch(gameOverReceived(p)))
+  socket.on('NEWS', (n) => {
+    if (n.key === 'POWER_SABOTAGED') playSound('alarm')
+    if (n.key === 'POWER_RESTORED') playSound('success')
+    dispatch(newsReceived(n))
+  })
+  socket.on('GAME_OVER', (p) => {
+    playSound(p.result === 'GOVERNMENT_WINS' ? 'win' : 'lose')
+    dispatch(gameOverReceived(p))
+  })
 }

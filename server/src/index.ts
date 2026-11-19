@@ -6,14 +6,16 @@ import { RoomManager } from './rooms/RoomManager'
 import { registerLobbyHandlers } from './handlers/lobbyHandlers'
 import { registerGameHandlers } from './handlers/gameHandlers'
 
-const PORT = Number(process.env.PORT ?? 3001)
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
+const PORT = Number(process.env.SERVER_PORT ?? 8001)
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:3000'
+const SOCKET_PATH = process.env.SOCKET_PATH ?? '/api/socket.io'
 
 const app = express()
-app.get('/health', (_req, res) => res.json({ ok: true }))
+app.get(['/health', '/api/health'], (_req, res) => res.json({ ok: true }))
 
 const httpServer = createServer(app)
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
+  path: SOCKET_PATH,
   cors: { origin: CLIENT_ORIGIN.split(',') },
 })
 
@@ -26,5 +28,5 @@ io.on('connection', (socket) => {
 })
 
 httpServer.listen(PORT, () => {
-  console.log(`[netagiri] server listening on :${PORT} (client origin ${CLIENT_ORIGIN})`)
+  console.log(`[netagiri] server listening on :${PORT} path ${SOCKET_PATH} (client origin ${CLIENT_ORIGIN})`)
 })

@@ -20,7 +20,7 @@ export default function Modal({ title, onClose, children }: Props) {
     <div className="px-modal" role="dialog" aria-modal="true" aria-label={title}>
       <PixelPanel title={title} className="px-modal__panel">
         {onClose && (
-          <button className="px-modal__close" onClick={onClose} aria-label="Close">
+          <button className="px-modal__close" onClick={onClose} aria-label="Close" data-testid="modal-close">
             ✕
           </button>
         )}

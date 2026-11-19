@@ -1,5 +1,5 @@
 /** Session identity: who am I and which room am I in. */
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { createAction, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { createRoom, joinRoom, leaveRoom } from './thunk'
 
 interface JoinState {
@@ -21,6 +21,9 @@ const initialState: JoinState = {
   submitLoading: false,
   error: null,
 }
+
+/** Socket dropped: rejoin isn't supported for the MVP, so every slice resets (Spec §12). */
+export const connectionLost = createAction('join/connectionLost')
 
 const joinSlice = createSlice({
   name: 'join',
@@ -54,6 +57,12 @@ const joinSlice = createSlice({
         })
     }
     builder.addCase(leaveRoom.fulfilled, (state) => ({ ...initialState, connected: state.connected, name: state.name, avatar: state.avatar }))
+    builder.addCase(connectionLost, (state) => ({
+      ...initialState,
+      name: state.name,
+      avatar: state.avatar,
+      error: state.roomCode ? 'Connection lost — you left the match. Rejoin with a room code.' : null,
+    }))
   },
 })
 

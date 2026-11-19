@@ -1,135 +1,125 @@
 /**
- * Renders the shared Parliament map (Game Design §4) and players.
- * Placeholder flat-colour tiles — swap for 16-bit tilesets from
- * assets/images once drawn (Visual Reference Pack, Boards 1–3).
+ * Renders the shared Parliament map (Game Design §4): code-drawn tileset,
+ * task stations, bodies and animated A1–A8 sprites.
  */
 import { useEffect, useRef, type MutableRefObject } from 'react'
-import {
-  EMERGENCY_BUTTON,
-  GRID,
-  MAP_HEIGHT,
-  MAP_WIDTH,
-  POWER_PANEL,
-  ROOMS,
-  TILE_SIZE,
-  type PublicPlayer,
-  type TaskInstance,
-  type Vec2,
-} from '@netagiri/shared'
+import { MAP_HEIGHT, MAP_WIDTH, type Body, type PublicPlayer, type TaskInstance, type Vec2 } from '@netagiri/shared'
 import { AVATARS } from 'helpers/avatars'
+import { drawBody, drawSprite, SPRITE_H, SPRITE_W } from 'helpers/sprites'
+import { drawParliament } from 'helpers/tiles'
+import { ANIM_FRAME_MS } from 'config/constants'
 
 interface Props {
   players: PublicPlayer[]
   tasks: TaskInstance[]
+  bodies: Body[]
   meId: string | null
   localPos: MutableRefObject<Vec2 | null>
   highlightTaskIds: string[]
+  highlightBodyId: string | null
+  teammateIds: string[]
+  interacting: boolean
+  powerOut: boolean
 }
 
-const ROOM_FLOOR: Record<string, string> = {
-  LOK_SABHA: '#3f6b4a',
-  PM_OFFICE: '#6b4a3a',
-  FINANCE_MINISTRY: '#4e5a3a',
-  RECORDS_ROOM: '#5a4a35',
-  CENTRAL_HALL: '#7a6648',
-}
+const PX = 2 // world pixels per sprite pixel
 
-function drawStatic(): HTMLCanvasElement {
-  const c = document.createElement('canvas')
-  c.width = MAP_WIDTH
-  c.height = MAP_HEIGHT
-  const g = c.getContext('2d')!
-  for (let y = 0; y < GRID.length; y++) {
-    for (let x = 0; x < GRID[y].length; x++) {
-      const t = GRID[y][x]
-      const room = ROOMS.find((r) => x >= r.rect.x && x < r.rect.x + r.rect.w && y >= r.rect.y && y < r.rect.y + r.rect.h)
-      g.fillStyle = t === 1 ? '#2b1d14' : t === 2 ? '#7a4b2a' : room ? ROOM_FLOOR[room.id] : '#8c7a5a'
-      g.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-      if (t === 0) {
-        g.strokeStyle = 'rgba(0,0,0,0.12)'
-        g.strokeRect(x * TILE_SIZE + 0.5, y * TILE_SIZE + 0.5, TILE_SIZE - 1, TILE_SIZE - 1)
-      }
-    }
-  }
-  g.font = '12px "Press Start 2P", monospace'
-  g.textAlign = 'center'
-  for (const r of ROOMS) {
-    const cx = (r.rect.x + r.rect.w / 2) * TILE_SIZE
-    const cy = (r.rect.y + r.rect.h) * TILE_SIZE - 10
-    g.fillStyle = 'rgba(0,0,0,0.55)'
-    const w = g.measureText(r.label).width + 12
-    g.fillRect(cx - w / 2, cy - 14, w, 20)
+function drawStation(g: CanvasRenderingContext2D, task: TaskInstance, highlight: boolean, t: number) {
+  const { x, y } = task.position
+  const done = task.status === 'COMPLETE'
+  const pulse = highlight && !done ? 2 + Math.sin(t / 180) * 2 : 0
+  g.fillStyle = 'rgba(0,0,0,0.35)'
+  g.fillRect(x - 11, y + 8, 22, 4)
+  g.fillStyle = done ? '#607b57' : '#1b2b3d'
+  g.fillRect(x - 10 - pulse, y - 10 - pulse, 20 + pulse * 2, 20 + pulse * 2)
+  g.strokeStyle = highlight ? '#f2c14e' : '#000'
+  g.lineWidth = 2
+  g.strokeRect(x - 10 - pulse, y - 10 - pulse, 20 + pulse * 2, 20 + pulse * 2)
+  g.fillStyle = '#d8c8a4'
+  if (task.type === 'FILE_SORT') {
+    g.fillRect(x - 6, y - 5, 12, 9)
+    g.fillRect(x - 6, y - 7, 5, 2)
+  } else if (task.type === 'RESTORE_POWER') {
     g.fillStyle = '#f2c14e'
-    g.fillText(r.label, cx, cy)
+    g.fillRect(x - 1, y - 7, 3, 7)
+    g.fillRect(x - 3, y, 3, 6)
+  } else {
+    g.fillRect(x - 5, y - 7, 10, 13)
+    g.fillStyle = '#a8463d'
+    g.fillRect(x - 2, y + 1, 4, 4)
   }
-  // Emergency bell + power panel markers.
-  const mark = (p: Vec2, color: string, label: string) => {
-    g.fillStyle = color
-    g.fillRect(p.x - 10, p.y - 10, 20, 20)
-    g.strokeStyle = '#000'
-    g.lineWidth = 3
-    g.strokeRect(p.x - 10, p.y - 10, 20, 20)
-    g.fillStyle = '#fff'
-    g.font = '8px "Press Start 2P", monospace'
-    g.fillText(label, p.x, p.y + 22)
+  if (done) {
+    g.fillStyle = '#f5e6c8'
+    g.font = '10px "Press Start 2P", monospace'
+    g.textAlign = 'center'
+    g.fillText('OK', x, y + 22)
   }
-  mark(EMERGENCY_BUTTON, '#a8463d', 'MEETING')
-  mark(POWER_PANEL, '#f2c14e', 'POWER')
-  return c
 }
 
-export default function ParliamentCanvas({ players, tasks, meId, localPos, highlightTaskIds }: Props) {
+export default function ParliamentCanvas(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const latest = useRef({ players, tasks, highlightTaskIds })
-  latest.current = { players, tasks, highlightTaskIds }
+  const latest = useRef(props)
+  latest.current = props
 
   useEffect(() => {
     const canvas = canvasRef.current!
     const g = canvas.getContext('2d')!
-    let bg = drawStatic()
-    document.fonts?.ready.then(() => (bg = drawStatic()))
+    let bg = drawParliament()
+    document.fonts?.ready.then(() => (bg = drawParliament()))
+    const lastPos = new Map<string, { x: number; y: number; movedAt: number }>()
     let raf = 0
 
     const render = (t: number) => {
-      const { players, tasks, highlightTaskIds } = latest.current
+      const { players, tasks, bodies, meId, localPos, highlightTaskIds, highlightBodyId, teammateIds, interacting, powerOut } = latest.current
+      const frame = Math.floor(t / ANIM_FRAME_MS)
       g.imageSmoothingEnabled = false
       g.drawImage(bg, 0, 0)
 
-      for (const task of tasks) {
-        const done = task.status === 'COMPLETE'
-        const pulse = highlightTaskIds.includes(task.taskId) && !done ? 3 + Math.sin(t / 200) * 2 : 0
-        g.fillStyle = done ? '#607b57' : '#d8c8a4'
-        g.fillRect(task.position.x - 8 - pulse, task.position.y - 8 - pulse, 16 + pulse * 2, 16 + pulse * 2)
-        g.strokeStyle = '#000'
-        g.lineWidth = 2
-        g.strokeRect(task.position.x - 8, task.position.y - 8, 16, 16)
+      for (const task of tasks) drawStation(g, task, highlightTaskIds.includes(task.taskId), t)
+
+      for (const b of bodies) {
+        if (b.reported) continue
+        const p = players.find((x) => x.id === b.playerId)
+        drawBody(g, AVATARS[(p?.avatar ?? 0) % AVATARS.length], b.position.x, b.position.y, PX, frame)
+        if (b.bodyId === highlightBodyId) {
+          const r = 20 + Math.sin(t / 150) * 4
+          g.strokeStyle = '#ff8f84'
+          g.lineWidth = 3
+          g.strokeRect(b.position.x - r, b.position.y - r, r * 2, r * 2)
+        }
       }
 
-      for (const p of players) {
+      const sorted = [...players].sort((a, b) => a.position.y - b.position.y)
+      for (const p of sorted) {
+        if (!p.alive || !p.connected) continue
         const pos = p.id === meId && localPos.current ? localPos.current : p.position
+        const prev = lastPos.get(p.id)
+        const moved = !prev || prev.x !== pos.x || prev.y !== pos.y
+        if (moved) lastPos.set(p.id, { x: pos.x, y: pos.y, movedAt: t })
+        const walking = t - (lastPos.get(p.id)?.movedAt ?? 0) < 120
+        const mode = p.id === meId && interacting ? 'interact' : walking ? 'walk' : 'idle'
         const a = AVATARS[p.avatar % AVATARS.length]
-        if (!p.alive) continue // bodies are drawn from match.bodies (Prompt 5)
         g.fillStyle = 'rgba(0,0,0,0.35)'
-        g.fillRect(pos.x - 9, pos.y + 8, 18, 4)
-        g.fillStyle = a.outfit
-        g.fillRect(pos.x - 8, pos.y - 4, 16, 14)
-        g.fillStyle = a.accent
-        g.fillRect(pos.x - 8, pos.y + 2, 16, 2)
-        g.fillStyle = '#c68b5e'
-        g.fillRect(pos.x - 6, pos.y - 14, 12, 10)
-        g.strokeStyle = '#000'
-        g.lineWidth = 2
-        g.strokeRect(pos.x - 8, pos.y - 14, 16, 24)
-        g.font = '14px VT323, monospace'
+        g.fillRect(pos.x - 9, pos.y + 9, 18, 4)
+        drawSprite(g, a, pos.x - (SPRITE_W * PX) / 2, pos.y + 12 - SPRITE_H * PX, PX, p.facing, mode, frame)
+        g.font = '16px VT323, monospace'
         g.textAlign = 'center'
-        g.fillStyle = p.id === meId ? '#f2c14e' : '#fff'
-        g.fillText(p.name, pos.x, pos.y - 18)
+        const label = teammateIds.includes(p.id) ? `${p.name} [AGENT]` : p.name
+        g.fillStyle = '#000'
+        g.fillText(label, pos.x + 1, pos.y - 26)
+        g.fillStyle = p.id === meId ? '#f2c14e' : teammateIds.includes(p.id) ? '#ff8f84' : '#f5e6c8'
+        g.fillText(label, pos.x, pos.y - 27)
+      }
+
+      if (powerOut) {
+        g.fillStyle = 'rgba(8,10,30,0.35)'
+        g.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT)
       }
       raf = requestAnimationFrame(render)
     }
     raf = requestAnimationFrame(render)
     return () => cancelAnimationFrame(raf)
-  }, [meId])
+  }, [])
 
-  return <canvas ref={canvasRef} width={MAP_WIDTH} height={MAP_HEIGHT} className="parliament-canvas" aria-label="Parliament map" />
+  return <canvas ref={canvasRef} width={MAP_WIDTH} height={MAP_HEIGHT} className="parliament-canvas" aria-label="Parliament map" data-testid="parliament-canvas" />
 }

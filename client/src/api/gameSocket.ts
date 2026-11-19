@@ -9,7 +9,7 @@ import { env } from 'config/env'
 
 export type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>
 
-export const gameSocket: GameSocket = io(env.serverUrl, { autoConnect: true, transports: ['websocket'] })
+export const gameSocket: GameSocket = io(env.serverUrl, { path: env.socketPath, autoConnect: true, transports: ['websocket', 'polling'] })
 
 type AckEvents = {
   [K in keyof ClientToServerEvents]: Parameters<ClientToServerEvents[K]> extends [...infer _A, (res: AckResult<infer _T>) => void] ? K : never

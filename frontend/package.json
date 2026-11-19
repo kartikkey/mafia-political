@@ -1,0 +1,8 @@
+{
+  "name": "netagiri-preview-launcher",
+  "private": true,
+  "description": "Emergent preview launcher: runs the monorepo server (:8001) and client (:3000) from /app.",
+  "scripts": {
+    "start": "cd /app && npm run preview:emergent"
+  }
+}

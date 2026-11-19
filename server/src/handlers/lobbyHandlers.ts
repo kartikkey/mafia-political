@@ -1,4 +1,5 @@
-/** Lobby + role assignment — Build Plan hour 0–1 (Phase 1). */
+/** Lobby + role assignment + disconnects. */
+import { broadcastMatch, endVoting, finishIfWon, wireMatch } from '../game/flow'
 import type { Match } from '../game/Match'
 import { sanitiseName } from '../utils/ids'
 import { fail, ok, type HandlerContext, type IO } from './types'
@@ -6,9 +7,7 @@ import { fail, ok, type HandlerContext, type IO } from './types'
 const AVATAR_COUNT = 8
 const validAvatar = (a: unknown) => (Number.isInteger(a) && (a as number) >= 0 && (a as number) < AVATAR_COUNT ? (a as number) : 0)
 
-export function broadcastMatch(io: IO, match: Match) {
-  io.to(match.roomCode).emit('MATCH_STATE', match.view())
-}
+export { broadcastMatch }
 
 /** Send each player only their own role; Deep State also gets teammates (Spec §10.4). */
 export function sendRoles(io: IO, match: Match) {
@@ -24,9 +23,9 @@ export function registerLobbyHandlers({ io, socket, rooms }: HandlerContext) {
   socket.on('CREATE_ROOM', (p, ack) => {
     const name = sanitiseName(p?.name)
     if (!name) return ack(fail('Name must be 2–16 letters or numbers'))
-    rooms.leave(socket.id)
+    leave()
     const { match, player } = rooms.create(socket.id, name, validAvatar(p.avatar))
-    match.onPhaseEnd = (state) => onPhaseEnd(io, match, state)
+    wireMatch(io, match)
     socket.join(match.roomCode)
     ack(ok({ roomCode: match.roomCode, playerId: player.id }))
     pushLobby(match)
@@ -36,7 +35,7 @@ export function registerLobbyHandlers({ io, socket, rooms }: HandlerContext) {
     const name = sanitiseName(p?.name)
     if (!name) return ack(fail('Name must be 2–16 letters or numbers'))
     if (typeof p.roomCode !== 'string') return ack(fail('Enter a room code'))
-    rooms.leave(socket.id)
+    leave()
     const res = rooms.join(socket.id, p.roomCode.trim(), name, validAvatar(p.avatar))
     if (typeof res === 'string') return ack(fail(res))
     socket.join(res.match.roomCode)
@@ -76,26 +75,19 @@ export function registerLobbyHandlers({ io, socket, rooms }: HandlerContext) {
     broadcastMatch(io, ref.match)
   })
 
-  const leave = () => {
+  function leave() {
     const res = rooms.leave(socket.id)
     if (!res) return
     socket.leave(res.match.roomCode)
     if (res.closed) return
-    io.to(res.match.roomCode).emit('PLAYER_LEFT', { playerId: res.playerId })
-    if (res.match.state === 'WAITING') pushLobby(res.match)
-    else {
-      // TODO(Prompt 7): re-check victory after a mid-match disconnect.
-      broadcastMatch(io, res.match)
-    }
+    const { match } = res
+    io.to(match.roomCode).emit('PLAYER_LEFT', { playerId: res.playerId })
+    if (match.state === 'WAITING') return pushLobby(match)
+    // Prompt 7: a mid-match disconnect no longer counts → re-check victory.
+    if (finishIfWon(io, match)) return
+    broadcastMatch(io, match)
+    if (match.state === 'VOTING' && match.allVoted()) endVoting(io, match)
   }
   socket.on('LEAVE_ROOM', leave)
   socket.on('disconnect', leave)
-}
-
-/** Timer-driven transitions. Extended by later prompts (meetings, voting…). */
-function onPhaseEnd(io: IO, match: Match, state: string) {
-  if (state === 'ROLE_ASSIGNMENT') {
-    match.setState('PLAYING')
-    broadcastMatch(io, match)
-  }
 }

@@ -64,6 +64,11 @@ describe('parliament map', () => {
     expect(GRID).toHaveLength(26)
     expect(GRID[0]).toHaveLength(40)
   })
+  it('has 12–15 task stations with unique ids (Spec §2.4)', () => {
+    expect(TASK_STATIONS.length).toBeGreaterThanOrEqual(12)
+    expect(TASK_STATIONS.length).toBeLessThanOrEqual(15)
+    expect(new Set(TASK_STATIONS.map((s) => s.stationId)).size).toBe(TASK_STATIONS.length)
+  })
   it('spawn points, stations and interactables are on walkable floor', () => {
     for (const pt of [...SPAWN_POINTS, ...TASK_STATIONS.map((s) => s.position), POWER_PANEL, EMERGENCY_BUTTON]) {
       expect(isWalkable(pt), JSON.stringify(pt)).toBe(true)

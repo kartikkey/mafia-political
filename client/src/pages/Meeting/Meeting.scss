@@ -1,5 +1,52 @@
 .meeting {
-  &__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--s-3); width: min(860px, 90vw); }
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--s-4) var(--s-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.08) 0 2px, transparent 2px 32px),
+    #1f3424;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--s-6);
+    flex-wrap: wrap;
+    h1 { display: flex; align-items: center; gap: var(--s-3); margin: 0; font-size: 22px; }
+  }
+  &__subtitle { margin: 0; font-size: 24px; }
+  &__transition {
+    font-family: var(--f-heading);
+    font-size: 18px;
+    text-align: center;
+    padding: var(--s-6);
+    background: var(--c-red);
+    border: 4px solid #000;
+    box-shadow: var(--shadow-pixel);
+    animation: session-in 0.5s ease-out;
+  }
+  &__body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s-4); align-items: start; }
+  &__panel { min-width: 0; }
+  &__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--s-3); }
+  &__vote-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    flex-wrap: wrap;
+    margin-top: var(--s-4);
+    p { margin: 0 auto 0 0; font-size: 24px; color: var(--c-accent); }
+  }
+
+  @media (max-width: 1000px) {
+    &__body { grid-template-columns: 1fr; }
+  }
+}
+
+@keyframes session-in {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .vote-card {
@@ -10,9 +57,50 @@
   color: var(--c-ink);
   border: 3px solid #000;
   padding: var(--s-2);
-  min-height: 56px;
+  min-height: 64px;
   cursor: pointer;
-  &.is-selected { border-color: var(--c-accent); }
+  text-align: left;
+  transition: transform 0.08s, border-color 0.1s;
+
+  &:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--c-beige); }
+  &.is-selected { border-color: var(--c-accent); outline: 3px solid var(--c-accent); }
+  &.is-out { opacity: 0.5; }
   &:disabled { cursor: default; }
-  &__voted { margin-left: auto; font-family: var(--f-heading); font-size: 8px; color: var(--c-accent); }
+  &__name { display: flex; flex-direction: column; font-size: 20px; small { font-size: 15px; color: var(--c-ink-muted); } }
+  &__status { font-family: var(--f-heading); font-size: 7px !important; color: #ff8f84 !important; }
+  &__voted {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 3px;
+    font-family: var(--f-heading); font-size: 7px;
+    background: var(--c-accent); color: var(--c-primary-deep);
+    border: 2px solid #000; padding: 3px 4px;
+  }
+}
+
+.chat {
+  background: var(--c-panel);
+  border: 4px solid var(--c-panel-border);
+  outline: 3px solid #000;
+  box-shadow: var(--shadow-pixel);
+  padding: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-height: 360px;
+
+  &--dead { justify-content: center; text-align: center; color: #ff8f84; font-family: var(--f-heading); font-size: 10px; line-height: 1.7; }
+  &__title { display: flex; gap: 6px; align-items: center; font-size: 10px; color: var(--c-accent); margin: 0; }
+  &__list { list-style: none; margin: 0; padding: 0; flex: 1; max-height: 340px; overflow-y: auto; font-size: 20px; li { margin-bottom: 4px; word-break: break-word; } strong { color: var(--c-accent); } }
+  &__form {
+    display: flex; gap: var(--s-2);
+    input { flex: 1; min-width: 0; min-height: 44px; background: #0b1219; color: var(--c-ink); border: 3px solid #000; padding: 0 var(--s-2); }
+  }
+}
+
+.vote-results {
+  margin-top: var(--s-4);
+  &__bars { list-style: none; margin: 0; padding: 0; li { display: grid; grid-template-columns: 140px 1fr 32px; gap: var(--s-2); align-items: center; margin-bottom: 4px; } }
+  &__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &__bar { height: 16px; background: #0b1219; border: 2px solid #000; span { display: block; height: 100%; background: var(--c-accent); } }
+  &__verdict { font-size: 26px; margin: var(--s-3) 0 0; }
 }

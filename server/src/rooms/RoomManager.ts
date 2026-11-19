@@ -54,6 +54,11 @@ export class RoomManager {
       position: { ...SPAWN_POINTS[match.players.size % SPAWN_POINTS.length] },
       facing: 'down',
       lastMoveAt: Date.now(),
+      lastActionAt: 0,
+      lastChatAt: 0,
+      eliminationReadyAt: 0,
+      openTask: null,
+      stats: { tasksCompleted: 0, eliminations: 0, meetingsAttended: 0 },
     }
     match.players.set(player.id, player)
     this.sockets.set(socketId, { roomCode: match.roomCode, playerId: player.id })
@@ -71,7 +76,7 @@ export class RoomManager {
     const { match, player } = ref
 
     if (match.state === 'WAITING') match.players.delete(player.id)
-    else player.connected = false
+    else match.markDisconnected(player.id)
 
     if (player.isHost) {
       player.isHost = false

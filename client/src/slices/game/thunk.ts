@@ -1,6 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit'
 import type { Direction, SabotageType, Vec2 } from '@netagiri/shared'
 import { emitWithAck, gameSocket } from 'api/gameSocket'
+import { playSound } from 'helpers/sound'
 
 /** Fire-and-forget position sync (throttled by the caller). */
 export const sendMove = createAsyncThunk('game/sendMove', async (p: { position: Vec2; facing: Direction }) => {
@@ -12,13 +13,17 @@ const withReason = <A, R>(type: string, fn: (arg: A) => Promise<R>) =>
     try {
       return await fn(arg)
     } catch (e: any) {
+      playSound('error')
       return rejectWithValue(e.message ?? 'Action rejected')
     }
   })
 
-// Prompt 4 — tasks
+// Prompt 3/4 — tasks
 export const openTask = withReason('game/openTask', (taskId: string) => emitWithAck('TASK_OPENED', { taskId }))
-export const completeTask = withReason('game/completeTask', (p: { taskId: string; payload: unknown }) => emitWithAck('TASK_COMPLETED', p))
+export const completeTask = withReason('game/completeTask', async (p: { taskId: string; payload: unknown }) => {
+  await emitWithAck('TASK_COMPLETED', p)
+  playSound('success')
+})
 
 // Prompt 5 — Deep State
 export const eliminatePlayer = withReason('game/eliminate', (targetId: string) => emitWithAck('PLAYER_ELIMINATE_REQUEST', { targetId }))

@@ -1,61 +1,123 @@
-import { MATCH_SETTINGS, withinRange } from '@netagiri/shared'
+import { Bell, Crosshair, Hand, Megaphone, ZapOff } from 'lucide-react'
+import { REPAIR_TASK_ID } from '@netagiri/shared'
 import { useAppDispatch, useAppSelector } from 'common/hooks/redux'
 import { useMatchNavigation } from 'common/hooks/useMatchNavigation'
 import { useCurrentPlayer } from 'common/hooks/useCurrentPlayer'
 import { useRerenderEvery } from 'common/hooks/useRerenderEvery'
 import GameLayout from 'layout/GameLayout'
-import { callEmergencyMeeting, openTask } from 'slices/game/thunk'
+import { callEmergencyMeeting, eliminatePlayer, openTask, reportBody, sabotage } from 'slices/game/thunk'
 import ParliamentCanvas from './components/ParliamentCanvas'
 import RoleReveal from './components/RoleReveal'
 import Hud from './components/Hud'
+import PlayersAlive from './components/PlayersAlive'
+import ControlsLegend from './components/ControlsLegend'
 import ActionBar, { type Action } from './components/ActionBar'
+import TaskModal from './components/TaskModal'
+import PowerCutOverlay from './components/PowerCutOverlay'
 import { useLocalMovement } from './hooks/useLocalMovement'
+import { useProximity } from './hooks/useProximity'
+import { useGameHotkeys } from './hooks/useGameHotkeys'
 import './Game.scss'
+
+const cooldownLeft = (readyAt: number) => Math.ceil((readyAt - Date.now()) / 1000)
 
 export default function Game() {
   useMatchNavigation()
   const dispatch = useAppDispatch()
-  const { match, role, feedback } = useAppSelector((s) => s.game)
+  const { match, role, feedback, feedbackAt, activeTaskId, eliminationReadyAt, sabotageReadyAt } = useAppSelector((s) => s.game)
   const playerId = useAppSelector((s) => s.join.playerId)
   const me = useCurrentPlayer()
   const { pos } = useLocalMovement()
-  useRerenderEvery(150) // keep proximity prompts fresh while the local player moves
+  useRerenderEvery(150) // keep proximity prompts + cooldowns fresh while the local player moves
+  const { nearTask, nearBody, nearTarget, nearPanel, roomLabel } = useProximity(match, me, role, pos)
 
-  if (!match) return <div className="page muted">Loading match…</div>
+  const deep = role?.faction === 'DEEP_STATE'
+  const playing = match?.state === 'PLAYING'
+  const alive = !!me?.alive
+  const powerOut = match?.sabotage.powerStatus === 'OUT'
+  const blockReason = !playing ? 'Meeting in progress' : !alive ? 'You are eliminated' : null
 
-  const here = pos.current ?? me?.position
-  const nearTask = here ? match.tasks.find((t) => t.status !== 'COMPLETE' && withinRange(here, t.position, MATCH_SETTINGS.interactionRange)) : undefined
-  const playing = match.state === 'PLAYING'
+  const useTarget = nearTask ? nearTask.taskId : !deep && nearPanel && powerOut ? REPAIR_TASK_ID : null
+  const canSabotageHere = deep && nearPanel && !nearTask
+  const elimCd = cooldownLeft(eliminationReadyAt)
+  const sabCd = cooldownLeft(sabotageReadyAt)
+  const emCd = cooldownLeft(match?.emergencyAvailableAt ?? 0)
 
-  // TODO(Prompts 4–6): Report [Space], Eliminate, Sabotage and the E-key binding.
   const actions: Action[] = [
     {
-      key: 'use',
-      label: 'Use',
-      hotkey: 'E',
-      variant: 'green',
-      disabledReason: !playing ? 'Meeting in progress' : nearTask ? null : 'Move closer to interact',
-      onClick: () => nearTask && dispatch(openTask(nearTask.taskId)),
+      key: 'use', label: 'Use', hotkey: 'E', keys: canSabotageHere ? [] : ['E'], icon: Hand, variant: 'green',
+      disabledReason: blockReason ?? (useTarget ? null : 'Move closer to interact'),
+      onClick: () => useTarget && dispatch(openTask(useTarget)),
     },
     {
-      key: 'meeting',
-      label: 'Emergency',
-      variant: 'danger',
-      disabledReason: !playing || !me?.alive ? 'Unavailable' : null,
+      key: 'report', label: 'Report', hotkey: 'SPACE', keys: ['SPACE', 'R'], icon: Megaphone, variant: 'danger',
+      disabledReason: blockReason ?? (nearBody ? null : 'No body nearby'),
+      onClick: () => nearBody && dispatch(reportBody(nearBody.bodyId)),
+    },
+    {
+      key: 'emergency', label: 'Meeting', icon: Bell, variant: 'primary',
+      disabledReason: blockReason ?? (emCd > 0 ? `Cooldown: ${emCd}s` : null),
       onClick: () => dispatch(callEmergencyMeeting()),
     },
   ]
+  if (deep) {
+    actions.push(
+      {
+        key: 'sabotage', label: 'Sabotage', hotkey: 'E', keys: canSabotageHere ? ['E'] : [], icon: ZapOff, variant: 'ghost',
+        disabledReason: blockReason ?? (!nearPanel ? 'Go to the power panel' : powerOut ? 'Power already out' : sabCd > 0 ? `Cooldown: ${sabCd}s` : null),
+        onClick: () => dispatch(sabotage({ type: 'POWER_CUT' })),
+      },
+      {
+        key: 'eliminate', label: 'Eliminate', hotkey: 'Q', keys: ['Q'], icon: Crosshair, variant: 'danger',
+        disabledReason: blockReason ?? (elimCd > 0 ? `Cooldown: ${elimCd}s` : nearTarget ? null : 'No target in range'),
+        onClick: () => nearTarget && dispatch(eliminatePlayer(nearTarget.id)),
+      }
+    )
+  }
+  useGameHotkeys(actions, !!activeTaskId || !playing)
+
+  if (!match) return <div className="page muted">Loading match…</div>
+
+  const prompt = !playing || !alive
+    ? null
+    : nearBody
+      ? `Press SPACE — Report the body of ${match.players.find((p) => p.id === nearBody.playerId)?.name ?? 'an MP'}`
+      : nearTask
+        ? `Press E — ${roomLabel} — ${nearTask.label}`
+        : nearPanel
+          ? deep ? (powerOut ? null : 'Press E — Power Panel — Cut the Power') : powerOut ? 'Press E — Power Panel — Restore Power' : null
+          : null
 
   return (
     <GameLayout>
-      <div className="game">
+      <div className="game" data-testid="game-screen">
         <div className="game__map">
-          <ParliamentCanvas players={match.players} tasks={match.tasks} meId={playerId} localPos={pos} highlightTaskIds={nearTask ? [nearTask.taskId] : []} />
-          {nearTask && playing && <div className="game__prompt">Press E — {nearTask.label}</div>}
+          <ParliamentCanvas
+            players={match.players}
+            tasks={match.tasks}
+            bodies={match.bodies}
+            meId={playerId}
+            localPos={pos}
+            highlightTaskIds={nearTask ? [nearTask.taskId] : []}
+            highlightBodyId={nearBody?.bodyId ?? null}
+            teammateIds={role?.teammateIds ?? []}
+            interacting={!!activeTaskId}
+            powerOut={powerOut}
+          />
+          {powerOut && playing && <PowerCutOverlay restoreAt={match.sabotage.powerRestoreAt} deep={deep} />}
+          {prompt && <div className="game__prompt" data-testid="interaction-prompt">{prompt}</div>}
+          {!alive && match.state !== 'ROLE_ASSIGNMENT' && (
+            <div className="game__dead" role="status" data-testid="eliminated-banner">
+              You have been eliminated — you can watch, but not move, vote or chat.
+            </div>
+          )}
         </div>
         <Hud role={role} tasks={match.tasks} completed={match.completedTasks} total={match.totalTasks} players={match.players} />
-        <ActionBar actions={actions} feedback={feedback} />
+        <PlayersAlive players={match.players} />
+        <ControlsLegend deep={deep} />
+        <ActionBar actions={actions} feedback={feedback} feedbackAt={feedbackAt} />
       </div>
+      <TaskModal tasks={match.tasks} />
       {match.state === 'ROLE_ASSIGNMENT' && <RoleReveal role={role} players={match.players} />}
     </GameLayout>
   )

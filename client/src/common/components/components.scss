@@ -52,28 +52,9 @@
 }
 
 .px-avatar {
-  position: relative;
   display: inline-block;
   flex-shrink: 0;
-
-  &__head {
-    position: absolute;
-    left: 30%;
-    top: 4%;
-    width: 40%;
-    height: 38%;
-    background: #c68b5e;
-    border: 2px solid #000;
-  }
-  &__body {
-    position: absolute;
-    left: 15%;
-    top: 42%;
-    width: 70%;
-    height: 54%;
-    border: 2px solid;
-    outline: 2px solid #000;
-  }
+  image-rendering: pixelated;
   &--dead { filter: grayscale(1) brightness(0.6); }
 }
 
@@ -86,7 +67,7 @@
   z-index: 50;
   padding: var(--s-4);
 
-  &__panel { width: min(520px, 100%); }
+  &__panel { width: min(560px, 100%); }
   &__close {
     position: absolute;
     top: 8px;

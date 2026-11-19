@@ -1,38 +1,122 @@
 /**
- * In-match actions. Movement is live (Phase 1/2); the rest are stubs that
- * reject cleanly until their prompt in docs/PROJECT_PLAN.md is built.
- * Every handler must: resolve the player from the socket (never trust a
- * client-supplied id), check match.state, validate range/cooldown/faction,
- * then mutate + broadcast.
+ * In-match actions. Every handler resolves the player from the socket (never
+ * trusts a client-supplied id), delegates validation to Match, then broadcasts.
  */
-import { fail, type HandlerContext } from './types'
+import { MATCH_SETTINGS } from '@netagiri/shared'
+import { announceMeeting, broadcastMatch, endVoting, finishIfWon, livingSocketIds, news, sendCooldowns } from '../game/flow'
+import { fail, ok, type HandlerContext } from './types'
 
-const NOT_YET = 'Not implemented yet'
+const sanitiseChat = (raw: unknown) =>
+  typeof raw === 'string' ? raw.replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, MATCH_SETTINGS.chatMaxLength) : ''
 
-export function registerGameHandlers({ socket, rooms }: HandlerContext) {
+let chatSeq = 0
+
+export function registerGameHandlers({ io, socket, rooms }: HandlerContext) {
+  const ref = () => rooms.bySocket(socket.id)
+
   socket.on('PLAYER_MOVED', (p) => {
-    const ref = rooms.bySocket(socket.id)
-    if (!ref || !p?.position) return
-    const accepted = ref.match.move(ref.player.id, p.position, p.facing ?? 'down')
+    const r = ref()
+    if (!r || !p?.position) return
+    const accepted = r.match.move(r.player.id, p.position, p.facing ?? 'down')
     if (accepted) {
-      socket.to(ref.match.roomCode).emit('PLAYER_MOVED', { playerId: ref.player.id, position: p.position, facing: ref.player.facing })
+      socket.to(r.match.roomCode).emit('PLAYER_MOVED', { playerId: r.player.id, position: p.position, facing: r.player.facing })
     } else {
       // Snap the mover back to the authoritative position.
-      socket.emit('PLAYER_MOVED', { playerId: ref.player.id, position: ref.player.position, facing: ref.player.facing })
+      socket.emit('PLAYER_MOVED', { playerId: r.player.id, position: r.player.position, facing: r.player.facing })
     }
   })
 
-  // Prompt 4 — tasks & mini-games
-  socket.on('TASK_OPENED', (_p, ack) => ack(fail(NOT_YET)))
-  socket.on('TASK_COMPLETED', (_p, ack) => ack(fail(NOT_YET)))
+  // Prompt 3/4 — tasks & mini-games
+  socket.on('TASK_OPENED', (p, ack) => {
+    const r = ref()
+    if (!r) return ack(fail('Not in a room'))
+    const res = r.match.openTask(r.player.id, String(p?.taskId ?? ''))
+    if (typeof res === 'string') return ack(fail(res))
+    ack(ok({ puzzle: res.puzzle }))
+  })
+
+  socket.on('TASK_COMPLETED', (p, ack) => {
+    const r = ref()
+    if (!r) return ack(fail('Not in a room'))
+    const { match } = r
+    const res = match.completeTask(r.player.id, String(p?.taskId ?? ''), p?.payload)
+    if (typeof res === 'string') return ack(fail(res))
+    ack(ok(undefined))
+    if (res.restored) {
+      news(io, match, 'POWER_RESTORED')
+      broadcastMatch(io, match)
+    }
+    if (res.progressed) {
+      io.to(match.roomCode).emit('TASK_PROGRESS', { taskId: p.taskId, completedTasks: match.completedTasks, totalTasks: match.tasks.length })
+      finishIfWon(io, match)
+    }
+  })
 
   // Prompt 5 — Deep State actions
-  socket.on('PLAYER_ELIMINATE_REQUEST', (_p, ack) => ack(fail(NOT_YET)))
-  socket.on('SABOTAGE_REQUEST', (_p, ack) => ack(fail(NOT_YET)))
+  socket.on('PLAYER_ELIMINATE_REQUEST', (p, ack) => {
+    const r = ref()
+    if (!r) return ack(fail('Not in a room'))
+    const { match } = r
+    const body = match.eliminate(r.player.id, String(p?.targetId ?? ''))
+    if (typeof body === 'string') return ack(fail(body))
+    ack(ok(undefined))
+    io.to(match.roomCode).emit('PLAYER_ELIMINATED', { body, livingCount: match.livingPlayers.length })
+    sendCooldowns(io, match)
+    if (!finishIfWon(io, match)) broadcastMatch(io, match)
+  })
+
+  socket.on('SABOTAGE_REQUEST', (p, ack) => {
+    const r = ref()
+    if (!r) return ack(fail('Not in a room'))
+    const reason = r.match.sabotageAction(r.player.id, p?.type)
+    if (reason) return ack(fail(reason))
+    ack(ok(undefined))
+    news(io, r.match, 'POWER_SABOTAGED')
+    sendCooldowns(io, r.match)
+    broadcastMatch(io, r.match)
+  })
 
   // Prompt 6 — reporting, meetings, voting
-  socket.on('BODY_REPORTED', (_p, ack) => ack(fail(NOT_YET)))
-  socket.on('EMERGENCY_MEETING', (ack) => ack(fail(NOT_YET)))
-  socket.on('CHAT_SEND', (_p, ack) => ack(fail(NOT_YET)))
-  socket.on('VOTE_SUBMITTED', (_p, ack) => ack(fail(NOT_YET)))
+  socket.on('BODY_REPORTED', (p, ack) => {
+    const r = ref()
+    if (!r) return ack(fail('Not in a room'))
+    const reason = r.match.report(r.player.id, String(p?.bodyId ?? ''))
+    if (reason) return ack(fail(reason))
+    ack(ok(undefined))
+    announceMeeting(io, r.match)
+  })
+
+  socket.on('EMERGENCY_MEETING', (ack) => {
+    const r = ref()
+    if (!r) return ack(fail('Not in a room'))
+    const reason = r.match.callEmergency(r.player.id)
+    if (reason) return ack(fail(reason))
+    ack(ok(undefined))
+    announceMeeting(io, r.match)
+  })
+
+  socket.on('CHAT_SEND', (p, ack) => {
+    const r = ref()
+    if (!r) return ack(fail('Not in a room'))
+    const { match, player } = r
+    if (!player.alive) return ack(fail('Eliminated players cannot chat'))
+    if (match.state !== 'DISCUSSION' && match.state !== 'VOTING') return ack(fail('Chat opens during discussion'))
+    const text = sanitiseChat(p?.text)
+    if (!text) return ack(fail('Message is empty'))
+    const now = Date.now()
+    if (now - player.lastChatAt < MATCH_SETTINGS.chatMinIntervalMs) return ack(fail('Slow down'))
+    player.lastChatAt = now
+    ack(ok(undefined))
+    io.to(livingSocketIds(match)).emit('CHAT_MESSAGE', { id: `c${++chatSeq}`, playerId: player.id, text, at: now })
+  })
+
+  socket.on('VOTE_SUBMITTED', (p, ack) => {
+    const r = ref()
+    if (!r) return ack(fail('Not in a room'))
+    const res = r.match.vote(r.player.id, String(p?.choice ?? ''))
+    if (typeof res === 'string') return ack(fail(res))
+    ack(ok(undefined))
+    io.to(r.match.roomCode).emit('VOTE_CAST', { voterId: r.player.id })
+    if (res.allVoted) endVoting(io, r.match)
+  })
 }

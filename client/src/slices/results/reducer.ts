@@ -1,5 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import type { GameOverPayload } from '@netagiri/shared'
+import type { ClientMatchView, GameOverPayload } from '@netagiri/shared'
+import { leaveRoom } from 'slices/join/thunk'
+import { connectionLost } from 'slices/join/reducer'
 import { returnToLobby } from './thunk'
 
 interface ResultsState {
@@ -29,6 +31,13 @@ const resultsSlice = createSlice({
         state.submitLoading = false
         state.error = action.payload as string
       })
+      .addCase(leaveRoom.fulfilled, () => initialState)
+      .addCase(connectionLost, () => initialState)
+      // Host reset the room → everyone's results clear.
+      .addMatcher(
+        (a): a is PayloadAction<ClientMatchView> => a.type === 'game/matchUpdated' && (a as PayloadAction<ClientMatchView>).payload?.state === 'WAITING',
+        () => initialState
+      )
   },
 })
 

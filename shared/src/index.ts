@@ -1,5 +1,6 @@
 export * from './types/game'
 export * from './types/events'
+export * from './types/puzzles'
 export * from './constants/settings'
 export * from './constants/roles'
 export * from './constants/news'

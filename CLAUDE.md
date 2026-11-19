@@ -27,7 +27,7 @@ client/   React 18 + TS + Redux Toolkit + React Router v6 + Vite + SCSS
 e2e/      Playwright multi-client smoke test
 ```
 
-Commands: `npm run dev` (server :3001 + client :5173), `npm test` (vitest),
+Commands: `npm run dev` (server :8001, socket path `/api/socket.io` + client :5173; Emergent preview uses `npm run preview:emergent` → client :3000), `npm test` (vitest),
 `npm run typecheck`, `npm run build`, `node e2e/smoke.cjs` (needs `npm run dev` running).
 
 ## Golden rules

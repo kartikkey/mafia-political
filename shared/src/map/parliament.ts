@@ -106,7 +106,13 @@ export const TASK_STATIONS: TaskStationDef[] = [
   { stationId: 'ch-power', type: 'RESTORE_POWER', label: 'Restore Power', roomId: 'CENTRAL_HALL', position: tileCenter(16, 17) },
   { stationId: 'ch-comms', type: 'RESTORE_POWER', label: 'Repair Communications', roomId: 'CENTRAL_HALL', position: tileCenter(36, 22) },
   { stationId: 'ls-register', type: 'APPROVE_BILL', label: 'Sign the Register', roomId: 'LOK_SABHA', position: tileCenter(24, 10) },
+  { stationId: 'ls-motion', type: 'FILE_SORT', label: 'File the Motion', roomId: 'LOK_SABHA', position: tileCenter(15, 3) },
+  { stationId: 'ch-bill', type: 'APPROVE_BILL', label: 'Approve the Bill', roomId: 'CENTRAL_HALL', position: tileCenter(30, 17) },
+  { stationId: 'ch-lights', type: 'RESTORE_POWER', label: 'Fix Hall Lighting', roomId: 'CENTRAL_HALL', position: tileCenter(28, 23) },
 ]
+
+/** Synthetic task id for repairing a Power Cut at the power panel (not counted as progress). */
+export const REPAIR_TASK_ID = 'power-panel'
 
 /** Deep State sabotage point and the emergency meeting bell. */
 export const POWER_PANEL: Vec2 = tileCenter(15, 22)

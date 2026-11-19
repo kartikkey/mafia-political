@@ -32,11 +32,31 @@ export const MATCH_SETTINGS = {
 
   /** Fallback hold-to-complete task duration (Spec §6.4). */
   holdTaskMs: 4_000,
+  /** Network jitter allowance when checking a hold duration. */
+  holdToleranceMs: 300,
+
+  /** Approve the Bill: sequence length and how long it is shown (Spec §6.3). */
+  billSequenceLength: 3,
+  billShowMs: 2_500,
+
+  /** Per-socket minimum gap between consequential action requests (Spec §12.1). */
+  actionRateLimitMs: 200,
 
   chatMaxLength: 140,
   chatMinIntervalMs: 750,
 
   newsTickerMs: 5_000,
+
+  /** Client feedback line lifetime ("Too far away", "Cooldown: 8s"). */
+  feedbackMs: 2_000,
+} as const
+
+/** Per-type switch: false falls back to HOLD-to-complete (Spec §6.4). */
+export const MINIGAME_ENABLED = {
+  FILE_SORT: true,
+  RESTORE_POWER: true,
+  APPROVE_BILL: true,
+  HOLD: true,
 } as const
 
 export const TILE_SIZE = 32
