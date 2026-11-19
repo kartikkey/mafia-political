@@ -1,4 +1,4 @@
-import { Bell, Crosshair, Hand, Megaphone, ZapOff } from 'lucide-react'
+import { Bell, Crosshair, FileWarning, Hand, Megaphone, ZapOff } from 'lucide-react'
 import { REPAIR_TASK_ID } from '@netagiri/shared'
 import { useAppDispatch, useAppSelector } from 'common/hooks/redux'
 import { useMatchNavigation } from 'common/hooks/useMatchNavigation'
@@ -14,6 +14,8 @@ import ControlsLegend from './components/ControlsLegend'
 import ActionBar, { type Action } from './components/ActionBar'
 import TaskModal from './components/TaskModal'
 import PowerCutOverlay from './components/PowerCutOverlay'
+import LeakBanner from './components/LeakBanner'
+import { useZoom } from './hooks/useZoom'
 import { useLocalMovement } from './hooks/useLocalMovement'
 import { useProximity } from './hooks/useProximity'
 import { useGameHotkeys } from './hooks/useGameHotkeys'
@@ -24,7 +26,8 @@ const cooldownLeft = (readyAt: number) => Math.ceil((readyAt - Date.now()) / 100
 export default function Game() {
   useMatchNavigation()
   const dispatch = useAppDispatch()
-  const { match, role, feedback, feedbackAt, activeTaskId, eliminationReadyAt, sabotageReadyAt } = useAppSelector((s) => s.game)
+  const { match, role, feedback, feedbackAt, activeTaskId, eliminationReadyAt, sabotageReadyAt, interacting } = useAppSelector((s) => s.game)
+  const { zoom, cycleZoom } = useZoom()
   const playerId = useAppSelector((s) => s.join.playerId)
   const me = useCurrentPlayer()
   const { pos } = useLocalMovement()
@@ -35,6 +38,9 @@ export default function Game() {
   const playing = match?.state === 'PLAYING'
   const alive = !!me?.alive
   const powerOut = match?.sabotage.powerStatus === 'OUT'
+  const leakedIds = match?.sabotage.disabledTaskIds ?? []
+  const sabotageActive = powerOut || leakedIds.length > 0
+  const nearLeaked = !!nearTask && leakedIds.includes(nearTask.taskId)
   const blockReason = !playing ? 'Meeting in progress' : !alive ? 'You are eliminated' : null
 
   const useTarget = nearTask ? nearTask.taskId : !deep && nearPanel && powerOut ? REPAIR_TASK_ID : null
@@ -46,7 +52,7 @@ export default function Game() {
   const actions: Action[] = [
     {
       key: 'use', label: 'Use', hotkey: 'E', keys: canSabotageHere ? [] : ['E'], icon: Hand, variant: 'green',
-      disabledReason: blockReason ?? (useTarget ? null : 'Move closer to interact'),
+      disabledReason: blockReason ?? (nearLeaked && useTarget === nearTask?.taskId ? 'Station offline (leak)' : useTarget ? null : 'Move closer to interact'),
       onClick: () => useTarget && dispatch(openTask(useTarget)),
     },
     {
@@ -64,8 +70,13 @@ export default function Game() {
     actions.push(
       {
         key: 'sabotage', label: 'Sabotage', hotkey: 'E', keys: canSabotageHere ? ['E'] : [], icon: ZapOff, variant: 'ghost',
-        disabledReason: blockReason ?? (!nearPanel ? 'Go to the power panel' : powerOut ? 'Power already out' : sabCd > 0 ? `Cooldown: ${sabCd}s` : null),
+        disabledReason: blockReason ?? (!nearPanel ? 'Go to the power panel' : sabotageActive ? 'Sabotage active' : sabCd > 0 ? `Cooldown: ${sabCd}s` : null),
         onClick: () => dispatch(sabotage({ type: 'POWER_CUT' })),
+      },
+      {
+        key: 'leak', label: 'Leak', hotkey: 'F', keys: ['F'], icon: FileWarning, variant: 'ghost',
+        disabledReason: blockReason ?? (!nearTask ? 'Stand at a task station' : sabotageActive ? 'Sabotage active' : sabCd > 0 ? `Cooldown: ${sabCd}s` : null),
+        onClick: () => nearTask && dispatch(sabotage({ type: 'DOCUMENT_LEAK', targetTaskId: nearTask.taskId })),
       },
       {
         key: 'eliminate', label: 'Eliminate', hotkey: 'Q', keys: ['Q'], icon: Crosshair, variant: 'danger',
@@ -83,7 +94,7 @@ export default function Game() {
     : nearBody
       ? `Press SPACE — Report the body of ${match.players.find((p) => p.id === nearBody.playerId)?.name ?? 'an MP'}`
       : nearTask
-        ? `Press E — ${roomLabel} — ${nearTask.label}`
+        ? nearLeaked ? `${nearTask.label} — offline: documents leaked` : `Press E — ${roomLabel} — ${nearTask.label}`
         : nearPanel
           ? deep ? (powerOut ? null : 'Press E — Power Panel — Cut the Power') : powerOut ? 'Press E — Power Panel — Restore Power' : null
           : null
@@ -101,10 +112,15 @@ export default function Game() {
             highlightTaskIds={nearTask ? [nearTask.taskId] : []}
             highlightBodyId={nearBody?.bodyId ?? null}
             teammateIds={role?.teammateIds ?? []}
-            interacting={!!activeTaskId}
+            interactingIds={[...Object.keys(interacting), ...(activeTaskId && playerId ? [playerId] : [])]}
+            disabledTaskIds={leakedIds}
             powerOut={powerOut}
+            zoom={zoom}
           />
           {powerOut && playing && <PowerCutOverlay restoreAt={match.sabotage.powerRestoreAt} deep={deep} />}
+          {leakedIds.length > 0 && playing && (
+            <LeakBanner endsAt={match.sabotage.leakEndsAt ?? null} station={match.tasks.find((t) => t.taskId === leakedIds[0])?.label ?? 'A station'} />
+          )}
           {prompt && <div className="game__prompt" data-testid="interaction-prompt">{prompt}</div>}
           {!alive && match.state !== 'ROLE_ASSIGNMENT' && (
             <div className="game__dead" role="status" data-testid="eliminated-banner">
@@ -112,9 +128,9 @@ export default function Game() {
             </div>
           )}
         </div>
-        <Hud role={role} tasks={match.tasks} completed={match.completedTasks} total={match.totalTasks} players={match.players} />
+        <Hud role={role} leakedIds={leakedIds} tasks={match.tasks} completed={match.completedTasks} total={match.totalTasks} players={match.players} />
         <PlayersAlive players={match.players} />
-        <ControlsLegend deep={deep} />
+        <ControlsLegend deep={deep} zoom={zoom} onZoom={cycleZoom} />
         <ActionBar actions={actions} feedback={feedback} feedbackAt={feedbackAt} />
       </div>
       <TaskModal tasks={match.tasks} />

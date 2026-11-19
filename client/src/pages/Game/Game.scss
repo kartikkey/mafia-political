@@ -6,8 +6,6 @@
   &__map {
     position: absolute;
     inset: 0;
-    display: grid;
-    place-items: center;
     background: #0b1219;
   }
 
@@ -49,9 +47,29 @@
 }
 
 .parliament-canvas {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
+  width: 100%;
+  height: 100%;
   image-rendering: pixelated;
+}
+
+.leak-banner {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  background: #b8642a;
+  border: 3px solid #000;
+  box-shadow: var(--shadow-pixel);
+  padding: var(--s-2) var(--s-4);
+  font-family: var(--f-heading);
+  font-size: 10px;
+  white-space: nowrap;
+  animation: prompt-in 0.2s ease-out;
 }
 
 .hud {
@@ -68,6 +86,12 @@
   &--legend { bottom: var(--s-3); left: var(--s-3); font-size: 18px; p { margin: 2px 0; } }
 
   &__role { margin-bottom: var(--s-3); }
+  &__offline { font-family: var(--f-heading); font-size: 7px; color: #ff8f84; text-decoration: none; }
+  &__zoom {
+    display: flex; align-items: center; gap: 4px; min-height: 36px; margin-top: 4px;
+    background: none; border: 0; padding: 0; color: var(--c-ink); font: inherit; font-size: 18px; cursor: pointer;
+    &:hover { color: var(--c-accent); }
+  }
   &__toggle {
     display: flex; align-items: center; gap: 4px; width: 100%; min-height: 32px; margin: var(--s-2) 0 4px;
     background: none; border: 0; padding: 0; cursor: pointer; color: var(--c-accent);

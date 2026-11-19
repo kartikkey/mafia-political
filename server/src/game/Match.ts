@@ -63,7 +63,7 @@ export interface MeetingInfo {
 const IN_MATCH: MatchState[] = ['ROLE_ASSIGNMENT', 'PLAYING', 'MEETING_TRANSITION', 'DISCUSSION', 'VOTING', 'VOTE_RESULTS']
 const secs = (ms: number) => Math.max(1, Math.ceil(ms / 1000))
 const freshStats = () => ({ tasksCompleted: 0, eliminations: 0, meetingsAttended: 0 })
-const powerOn = (): SabotageState => ({ powerStatus: 'ON', powerRestoreAt: null, disabledTaskIds: [] })
+const powerOn = (): SabotageState => ({ powerStatus: 'ON', powerRestoreAt: null, disabledTaskIds: [], leakEndsAt: null })
 
 export class Match {
   state: MatchState = 'WAITING'
@@ -81,14 +81,14 @@ export class Match {
   result: Exclude<VictoryResult, 'NO_WINNER'> | null = null
   private timer: NodeJS.Timeout | null = null
   /** Separate from the phase timer so meetings can't wipe or double-fire it. */
-  private powerTimer: NodeJS.Timeout | null = null
+  private sabotageTimer: NodeJS.Timeout | null = null
   private bodySeq = 0
 
   constructor(public readonly roomCode: string) {}
 
   /** Wired by the handlers: timer-driven phase end + timed power restore. */
   onPhaseEnd: (state: MatchState) => void = () => {}
-  onPowerRestored: () => void = () => {}
+  onSabotageEnded: (type: SabotageType) => void = () => {}
 
   get hostId(): string | undefined {
     return [...this.players.values()].find((p) => p.isHost)?.id
@@ -178,7 +178,7 @@ export class Match {
     this.result = null
     this.sabotageReadyAt = 0
     this.emergencyAvailableAt = 0
-    this.clearPower()
+    this.clearSabotage()
     this.setState('ROLE_ASSIGNMENT', MATCH_SETTINGS.roleRevealMs)
     return null
   }
@@ -235,7 +235,7 @@ export class Match {
     if (!task) return 'Task unavailable'
     if (!withinRange(p.position, task.position, MATCH_SETTINGS.interactionRange)) return 'Too far away'
     if (task.status === 'COMPLETE') return 'Task already complete'
-    if (this.sabotage.disabledTaskIds.includes(taskId)) return 'Task unavailable'
+    if (this.sabotage.disabledTaskIds.includes(taskId)) return `Documents leaked — back in ${secs((this.sabotage.leakEndsAt ?? now) - now)}s`
 
     const gen = generatePuzzle(task.type)
     p.openTask = { taskId, openedAt: now, answer: gen.answer, fake: p.faction !== 'GOVERNMENT' }
@@ -280,7 +280,7 @@ export class Match {
 
     let restored = false
     if (isRepair || (task!.type === 'RESTORE_POWER' && this.sabotage.powerStatus === 'OUT')) {
-      this.clearPower()
+      this.clearSabotage()
       restored = true
     }
     if (isRepair) return { progressed: false, restored }
@@ -318,30 +318,73 @@ export class Match {
     return body
   }
 
-  sabotageAction(actorId: string, type: SabotageType, now = Date.now()): string | null {
+  /**
+   * One sabotage at a time (team-wide cooldown).
+   * POWER_CUT at the power panel; DOCUMENT_LEAK at an available task station
+   * (that station goes offline). Returns the ids of players whose open task was
+   * closed by the leak, or a rejection reason.
+   */
+  sabotageAction(actorId: string, type: SabotageType, targetTaskId?: string, now = Date.now()): { closedFor: string[] } | string {
     const p = this.actor(actorId, now)
     if (typeof p === 'string') return p
     if (p.faction !== 'DEEP_STATE') return 'Not allowed'
-    if (type !== 'POWER_CUT') return 'Sabotage unavailable'
-    if (!withinRange(p.position, POWER_PANEL, MATCH_SETTINGS.interactionRange)) return 'Too far away'
-    if (this.sabotage.powerStatus === 'OUT') return 'Power is already out'
+    if (type !== 'POWER_CUT' && type !== 'DOCUMENT_LEAK') return 'Sabotage unavailable'
+
+    let leakTask: TaskInstance | undefined
+    if (type === 'POWER_CUT') {
+      if (!withinRange(p.position, POWER_PANEL, MATCH_SETTINGS.interactionRange)) return 'Too far away'
+      if (this.sabotage.powerStatus === 'OUT') return 'Power is already out'
+    } else {
+      leakTask = this.tasks.find((t) => t.taskId === targetTaskId)
+      if (!leakTask) return 'Stand at a task station'
+      if (!withinRange(p.position, leakTask.position, MATCH_SETTINGS.interactionRange)) return 'Too far away'
+      if (leakTask.status === 'COMPLETE') return 'Task already complete'
+    }
+    if (this.sabotageActive) return 'Sabotage already active'
     if (now < this.sabotageReadyAt) return `Cooldown: ${secs(this.sabotageReadyAt - now)}s`
 
     this.sabotageReadyAt = now + MATCH_SETTINGS.sabotageCooldownMs
-    this.sabotage = { powerStatus: 'OUT', powerRestoreAt: now + MATCH_SETTINGS.powerCutDurationMs, disabledTaskIds: [] }
-    this.powerTimer = setTimeout(() => {
-      this.powerTimer = null
-      if (this.sabotage.powerStatus !== 'OUT') return
+    const closedFor: string[] = []
+    let duration: number
+    if (type === 'POWER_CUT') {
+      duration = MATCH_SETTINGS.powerCutDurationMs
+      this.sabotage = { powerStatus: 'OUT', powerRestoreAt: now + duration, disabledTaskIds: [], leakEndsAt: null }
+    } else {
+      duration = MATCH_SETTINGS.documentLeakDurationMs
+      this.sabotage = { powerStatus: 'ON', powerRestoreAt: null, disabledTaskIds: [leakTask!.taskId], leakEndsAt: now + duration }
+      for (const pl of this.players.values()) {
+        if (pl.openTask?.taskId === leakTask!.taskId) {
+          pl.openTask = null
+          closedFor.push(pl.id)
+        }
+      }
+    }
+    this.sabotageTimer = setTimeout(() => {
+      this.sabotageTimer = null
+      if (!this.sabotageActive) return
       this.sabotage = powerOn()
-      this.onPowerRestored()
-    }, MATCH_SETTINGS.powerCutDurationMs)
-    return null
+      this.onSabotageEnded(type)
+    }, duration)
+    return { closedFor }
   }
 
-  clearPower() {
-    if (this.powerTimer) clearTimeout(this.powerTimer)
-    this.powerTimer = null
+  get sabotageActive() {
+    return this.sabotage.powerStatus === 'OUT' || this.sabotage.disabledTaskIds.length > 0
+  }
+
+  /** Ends any active sabotage (repair, meeting, game over, reset). */
+  clearSabotage() {
+    if (this.sabotageTimer) clearTimeout(this.sabotageTimer)
+    this.sabotageTimer = null
     this.sabotage = powerOn()
+  }
+
+  /** ROLE_ASSIGNMENT → PLAYING: agents get a grace period before the first elimination. */
+  beginPlay(now = Date.now()) {
+    for (const p of this.players.values()) {
+      if (p.faction === 'DEEP_STATE') p.eliminationReadyAt = now + MATCH_SETTINGS.initialEliminationCooldownMs
+    }
+    this.setState('PLAYING')
   }
 
   // ── Meetings & voting (Spec §8) ──────────────────────────────────────
@@ -370,7 +413,7 @@ export class Match {
     this.meeting = info
     this.votes.clear()
     this.lastTally = null
-    this.clearPower()
+    this.clearSabotage()
     for (const b of this.bodies) b.reported = true
     for (const p of this.players.values()) {
       p.openTask = null // Spec §5.3: task UI closes when a meeting starts
@@ -443,7 +486,7 @@ export class Match {
     const result = this.checkVictory()
     if (result === 'NO_WINNER') return null
     this.result = result
-    this.clearPower()
+    this.clearSabotage()
     for (const p of this.players.values()) p.openTask = null
     this.setState('GAME_OVER')
     return result
@@ -473,7 +516,7 @@ export class Match {
 
   resetToLobby() {
     this.setState('WAITING')
-    this.clearPower()
+    this.clearSabotage()
     this.tasks = []
     this.bodies = []
     this.votes.clear()
@@ -491,7 +534,7 @@ export class Match {
 
   dispose() {
     if (this.timer) clearTimeout(this.timer)
-    this.clearPower()
+    this.clearSabotage()
   }
 }
 

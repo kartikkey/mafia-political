@@ -11,6 +11,8 @@ export const MATCH_SETTINGS = {
   moveSpeed: 160,
 
   eliminationCooldownMs: 25_000,
+  /** Grace period after the match starts before any elimination (players leave spawn). */
+  initialEliminationCooldownMs: 12_000,
   /** Elimination radius in world pixels (~1 tile). */
   eliminationRange: 40,
   /** Shared interaction radius for tasks, bodies, sabotage objects. */
@@ -29,6 +31,8 @@ export const MATCH_SETTINGS = {
 
   powerCutDurationMs: 15_000,
   sabotageCooldownMs: 30_000,
+  /** Document Leak: one task station offline for this long. */
+  documentLeakDurationMs: 20_000,
 
   /** Fallback hold-to-complete task duration (Spec §6.4). */
   holdTaskMs: 4_000,

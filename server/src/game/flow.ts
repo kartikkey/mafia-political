@@ -44,6 +44,10 @@ export function endVoting(io: IO, match: Match) {
   broadcastMatch(io, match)
 }
 
+/** Interact animation for everyone else — identical for real and fake tasks (bluffing). */
+export const interacting = (io: IO, match: Match, playerId: string, socketId: string, taskId: string | null) =>
+  io.to(match.roomCode).except(socketId).emit('PLAYER_INTERACTING', { playerId, taskId })
+
 /** Living players only: dead players cannot read or send chat (Spec §1.2, §8.5). */
 export function livingSocketIds(match: Match) {
   return match.livingPlayers.map((p) => p.socketId)
@@ -51,8 +55,8 @@ export function livingSocketIds(match: Match) {
 
 export function wireMatch(io: IO, match: Match) {
   match.onPhaseEnd = (state) => onPhaseEnd(io, match, state)
-  match.onPowerRestored = () => {
-    news(io, match, 'POWER_RESTORED')
+  match.onSabotageEnded = (type) => {
+    news(io, match, type === 'POWER_CUT' ? 'POWER_RESTORED' : 'DOCUMENT_LEAK_CONTAINED')
     broadcastMatch(io, match)
   }
 }
@@ -61,9 +65,10 @@ function onPhaseEnd(io: IO, match: Match, state: MatchState) {
   if (match.state !== state) return // stale timer
   switch (state) {
     case 'ROLE_ASSIGNMENT':
-      match.setState('PLAYING')
+      match.beginPlay()
       if (finishIfWon(io, match)) return // Spec §9.3: configuration check at start
       broadcastMatch(io, match)
+      sendCooldowns(io, match)
       return
     case 'MEETING_TRANSITION':
       match.setState('DISCUSSION', MATCH_SETTINGS.discussionMs)

@@ -3,7 +3,7 @@
  * trusts a client-supplied id), delegates validation to Match, then broadcasts.
  */
 import { MATCH_SETTINGS } from '@netagiri/shared'
-import { announceMeeting, broadcastMatch, endVoting, finishIfWon, livingSocketIds, news, sendCooldowns } from '../game/flow'
+import { announceMeeting, broadcastMatch, endVoting, finishIfWon, interacting, livingSocketIds, news, sendCooldowns } from '../game/flow'
 import { fail, ok, type HandlerContext } from './types'
 
 const sanitiseChat = (raw: unknown) =>
@@ -33,6 +33,14 @@ export function registerGameHandlers({ io, socket, rooms }: HandlerContext) {
     const res = r.match.openTask(r.player.id, String(p?.taskId ?? ''))
     if (typeof res === 'string') return ack(fail(res))
     ack(ok({ puzzle: res.puzzle }))
+    interacting(io, r.match, r.player.id, socket.id, String(p.taskId))
+  })
+
+  socket.on('TASK_CLOSED', () => {
+    const r = ref()
+    if (!r || !r.player.openTask) return
+    r.match.closeTask(r.player.id)
+    interacting(io, r.match, r.player.id, socket.id, null)
   })
 
   socket.on('TASK_COMPLETED', (p, ack) => {
@@ -40,6 +48,7 @@ export function registerGameHandlers({ io, socket, rooms }: HandlerContext) {
     if (!r) return ack(fail('Not in a room'))
     const { match } = r
     const res = match.completeTask(r.player.id, String(p?.taskId ?? ''), p?.payload)
+    if (!r.player.openTask) interacting(io, match, r.player.id, socket.id, null)
     if (typeof res === 'string') return ack(fail(res))
     ack(ok(undefined))
     if (res.restored) {
@@ -68,10 +77,14 @@ export function registerGameHandlers({ io, socket, rooms }: HandlerContext) {
   socket.on('SABOTAGE_REQUEST', (p, ack) => {
     const r = ref()
     if (!r) return ack(fail('Not in a room'))
-    const reason = r.match.sabotageAction(r.player.id, p?.type)
-    if (reason) return ack(fail(reason))
+    const res = r.match.sabotageAction(r.player.id, p?.type, p?.targetTaskId)
+    if (typeof res === 'string') return ack(fail(res))
     ack(ok(undefined))
-    news(io, r.match, 'POWER_SABOTAGED')
+    for (const id of res.closedFor) {
+      const pl = r.match.players.get(id)!
+      interacting(io, r.match, id, pl.socketId, null)
+    }
+    news(io, r.match, p.type === 'POWER_CUT' ? 'POWER_SABOTAGED' : 'DOCUMENT_LEAK')
     sendCooldowns(io, r.match)
     broadcastMatch(io, r.match)
   })

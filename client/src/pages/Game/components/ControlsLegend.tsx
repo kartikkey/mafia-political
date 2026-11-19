@@ -1,10 +1,12 @@
+import { ZoomIn } from 'lucide-react'
+
 /** Bottom-left controls legend (Board 1 & 2). Space is the primary Report key (Spec §3.1). */
-export default function ControlsLegend({ deep }: { deep: boolean }) {
+export default function ControlsLegend({ deep, zoom, onZoom }: { deep: boolean; zoom: number; onZoom: () => void }) {
   const rows: [string, string][] = [
     ['WASD', 'Move'],
-    ['E', deep ? 'Use / Sabotage' : 'Use'],
+    ['E', deep ? 'Use / Cut power' : 'Use'],
     ['SPACE / R', 'Report body'],
-    ...(deep ? ([['Q', 'Eliminate']] as [string, string][]) : []),
+    ...(deep ? ([['Q', 'Eliminate'], ['F', 'Leak documents']] as [string, string][]) : []),
     ['ESC', 'Close task'],
   ]
   return (
@@ -12,6 +14,9 @@ export default function ControlsLegend({ deep }: { deep: boolean }) {
       {rows.map(([k, v]) => (
         <p key={k}><kbd>{k}</kbd> {v}</p>
       ))}
+      <button className="hud__zoom" onClick={onZoom} data-testid="zoom-toggle">
+        <kbd>Z</kbd> <ZoomIn size={14} aria-hidden /> Zoom {zoom === 1 ? 'full map' : `${zoom}×`}
+      </button>
     </aside>
   )
 }

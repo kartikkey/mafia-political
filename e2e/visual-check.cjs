@@ -29,16 +29,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
       await pages[d].keyboard.down(key); await sleep(Math.min(500, Math.abs(delta) / 160 * 1000)); await pages[d].keyboard.up(key); await sleep(150)
     }
   }
-  await go('y', 112); await go('x', 640); await go('y', 720); await go('x', 500)
+  const shot = (i, name) => pages[i].screenshot({ path: `docs/screenshots/${name}.png` })
+  await shot(g, 'camera-follow')
+  // Fake task at File the Motion (tile 15,3): others must see the same interact bubble as a real task.
+  await go('y', 112); await go('x', 496)
+  await pages[d].keyboard.press('KeyE'); await sleep(700)
+  const seen = (await st(pages[g])).game.interacting[ids[d]]
+  console.log('gov sees deep interacting at', seen)
+  await pages[g].keyboard.press('KeyZ'); await pages[g].keyboard.press('KeyZ'); await sleep(400)
+  await shot(g, 'fake-task-bubble-fullmap')
+  await pages[d].keyboard.press('Escape'); await sleep(500)
+  console.log('after Esc, gov sees', (await st(pages[g])).game.interacting[ids[d]] ?? 'nothing')
   await sleep(300)
-  await pages[d].screenshot({ path: 'docs/screenshots/deep-at-panel.png' })
-  await pages[d].keyboard.press('KeyE'); await sleep(800)
-  const s2 = await st(pages[g])
-  console.log('power', s2.game.match.sabotage.powerStatus)
-  await pages[g].screenshot({ path: 'docs/screenshots/power-cut-gov.png' })
-  await pages[d].screenshot({ path: 'docs/screenshots/power-cut-deep.png' })
-  // Gov opens nearest-free task via raw state: walk not needed for the modal look — use the station next to spawn if in range.
-  await pages[g].keyboard.press('KeyE'); await sleep(600)
-  console.log('gov feedback', (await st(pages[g])).game.feedback)
+  await pages[d].keyboard.press('KeyF'); await sleep(800)
+  const sab = (await st(pages[g])).game.match.sabotage
+  console.log('leak', JSON.stringify(sab), 'news', (await st(pages[g])).game.news.at(-1)?.key)
+  await pages[g].keyboard.press('KeyZ'); await sleep(400)
+  await shot(g, 'document-leak-gov')
+  await shot(d, 'document-leak-deep')
   await b.close()
 })()

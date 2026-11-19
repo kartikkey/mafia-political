@@ -63,6 +63,8 @@ export interface SabotageState {
   powerStatus: 'ON' | 'OUT'
   powerRestoreAt: number | null
   disabledTaskIds: string[]
+  /** Document Leak: when the disabled station comes back online. */
+  leakEndsAt?: number | null
 }
 
 export type VictoryResult = 'GOVERNMENT_WINS' | 'DEEP_STATE_WINS' | 'NO_WINNER'

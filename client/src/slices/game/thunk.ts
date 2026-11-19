@@ -25,6 +25,12 @@ export const completeTask = withReason('game/completeTask', async (p: { taskId: 
   playSound('success')
 })
 
+/** Player dismissed the mini-game (Esc / ✕): tell the server so others stop seeing the interact animation. */
+export const dismissTask = createAsyncThunk('game/dismissTask', async (_: void, { dispatch }) => {
+  gameSocket.emit('TASK_CLOSED')
+  dispatch({ type: 'game/closeTask' }) // plain type avoids a reducer↔thunk import cycle
+})
+
 // Prompt 5 — Deep State
 export const eliminatePlayer = withReason('game/eliminate', (targetId: string) => emitWithAck('PLAYER_ELIMINATE_REQUEST', { targetId }))
 export const sabotage = withReason('game/sabotage', (p: { type: SabotageType; targetTaskId?: string }) => emitWithAck('SABOTAGE_REQUEST', p))

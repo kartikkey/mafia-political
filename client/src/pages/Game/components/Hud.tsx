@@ -5,6 +5,7 @@ import Badge from 'common/components/Badge'
 
 interface Props {
   role: RoleAssignment | null
+  leakedIds: string[]
   tasks: TaskInstance[]
   completed: number
   total: number
@@ -12,7 +13,7 @@ interface Props {
 }
 
 /** Top-left HUD (Spec §11.1): role, shared progress, task list (or fellow agents). */
-export default function Hud({ role, tasks, completed, total, players }: Props) {
+export default function Hud({ role, leakedIds, tasks, completed, total, players }: Props) {
   const pct = total ? Math.round((completed / total) * 100) : 0
   const deep = role?.faction === 'DEEP_STATE'
   const mates = players.filter((p) => role?.teammateIds.includes(p.id))
@@ -45,6 +46,7 @@ export default function Hud({ role, tasks, completed, total, players }: Props) {
           <li key={t.taskId} className={t.status === 'COMPLETE' ? 'is-done' : ''} data-testid={`task-item-${t.taskId}`}>
             <span aria-hidden>{t.status === 'COMPLETE' ? '[x]' : '[ ]'}</span> {t.label}
             {t.status === 'COMPLETE' && <span className="visually-hidden"> (complete)</span>}
+            {leakedIds.includes(t.taskId) && <span className="hud__offline"> OFFLINE</span>}
           </li>
         ))}
       </ul>}

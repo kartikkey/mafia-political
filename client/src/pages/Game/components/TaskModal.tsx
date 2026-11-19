@@ -1,8 +1,7 @@
 import { REPAIR_TASK_ID, type TaskInstance, type TaskPuzzle } from '@netagiri/shared'
 import Modal from 'common/components/Modal'
 import { useAppDispatch, useAppSelector } from 'common/hooks/redux'
-import { closeTask } from 'slices/game/reducer'
-import { completeTask } from 'slices/game/thunk'
+import { completeTask, dismissTask } from 'slices/game/thunk'
 import HoldTask from './minigames/HoldTask'
 import FileSort from './minigames/FileSort'
 import RestorePower from './minigames/RestorePower'
@@ -26,7 +25,7 @@ export default function TaskModal({ tasks }: { tasks: TaskInstance[] }) {
   const common = { error: taskError, busy: taskBusy, onSubmit: submit }
 
   return (
-    <Modal title={title} onClose={() => dispatch(closeTask())}>
+    <Modal title={title} onClose={() => dispatch(dismissTask())}>
       <div className="task-modal" data-testid="task-modal" data-puzzle-type={activePuzzle.type}>
         <p className="task-modal__hint">{INSTRUCTIONS[activePuzzle.type]}</p>
         {activePuzzle.type === 'HOLD' && <HoldTask puzzle={activePuzzle} {...common} />}

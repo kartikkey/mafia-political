@@ -11,6 +11,7 @@ import {
   matchUpdated,
   newsReceived,
   playerEliminated,
+  playerInteracting,
   playerMoved,
   roleAssigned,
   taskProgress,
@@ -43,6 +44,7 @@ export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId
     dispatch(playerEliminated({ body: p.body, meId: getMeId() }))
   })
   socket.on('COOLDOWN', (p) => dispatch(cooldownUpdated(p)))
+  socket.on('PLAYER_INTERACTING', (p) => dispatch(playerInteracting(p)))
 
   socket.on('MEETING_STARTED', (p) => {
     playSound('siren')
@@ -62,7 +64,7 @@ export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId
   })
 
   socket.on('NEWS', (n) => {
-    if (n.key === 'POWER_SABOTAGED') playSound('alarm')
+    if (n.key === 'POWER_SABOTAGED' || n.key === 'DOCUMENT_LEAK') playSound('alarm')
     if (n.key === 'POWER_RESTORED') playSound('success')
     dispatch(newsReceived(n))
   })

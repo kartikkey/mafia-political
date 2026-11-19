@@ -19,6 +19,8 @@ interface GameState {
   taskError: string | null
   taskBusy: boolean
   news: NewsItem[]
+  /** playerId → taskId for everyone currently working a station (real or fake). */
+  interacting: Record<string, string>
   /** Latest short feedback line ("Too far away", "Cooldown: 8s"). */
   feedback: string | null
   feedbackAt: number
@@ -34,6 +36,7 @@ const initialState: GameState = {
   taskError: null,
   taskBusy: false,
   news: [],
+  interacting: {},
   feedback: null,
   feedbackAt: 0,
 }
@@ -55,7 +58,15 @@ const gameSlice = createSlice({
     resetGame: () => initialState,
     matchUpdated: (state, action: PayloadAction<ClientMatchView>) => {
       state.match = action.payload
-      if (action.payload.state !== 'PLAYING') clearTask(state) // Spec §5.3
+      if (action.payload.state !== 'PLAYING') {
+        clearTask(state) // Spec §5.3
+        state.interacting = {}
+      }
+      if (state.activeTaskId && action.payload.sabotage.disabledTaskIds.includes(state.activeTaskId)) {
+        clearTask(state)
+        state.feedback = 'Documents leaked — station offline'
+        state.feedbackAt = Date.now()
+      }
       if (action.payload.state === 'WAITING') {
         state.role = null
         state.news = []
@@ -96,6 +107,10 @@ const gameSlice = createSlice({
       state.news = [...state.news.slice(-9), action.payload]
     },
     closeTask: clearTask,
+    playerInteracting: (state, action: PayloadAction<{ playerId: string; taskId: string | null }>) => {
+      if (action.payload.taskId) state.interacting[action.payload.playerId] = action.payload.taskId
+      else delete state.interacting[action.payload.playerId]
+    },
     setFeedback: (state, action: PayloadAction<string | null>) => {
       state.feedback = action.payload
       state.feedbackAt = Date.now()
@@ -148,6 +163,7 @@ export const {
   cooldownUpdated,
   newsReceived,
   closeTask,
+  playerInteracting,
   setFeedback,
 } = gameSlice.actions
 export default gameSlice.reducer

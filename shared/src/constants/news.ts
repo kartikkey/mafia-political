@@ -7,6 +7,7 @@ export const NEWS = {
   PLAYER_VOTED_OUT: 'PARLIAMENT: A sitting MP has been voted out.',
   NO_EJECTION: 'PARLIAMENT: The house could not reach a majority. No MP removed.',
   POWER_RESTORED: 'UPDATE: Parliamentary power has been restored.',
+  DOCUMENT_LEAK_CONTAINED: 'UPDATE: The leaked files have been recovered. Records access restored.',
   GOVERNMENT_WINS: 'DEMOCRACY SURVIVES: The infiltrators have been exposed.',
   DEEP_STATE_WINS: 'GOVERNMENT COLLAPSES: Parliament has fallen under covert control.',
 } as const

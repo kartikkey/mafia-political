@@ -134,11 +134,11 @@ describe('elimination (Prompt 5)', () => {
 describe('power cut (Prompt 5)', () => {
   it('deep state cuts power at the panel; government repairs early', () => {
     const { match, gov, deep } = playing()
-    expect(match.sabotageAction(deep[0].id, 'POWER_CUT', tick())).toBe('Too far away')
+    expect(match.sabotageAction(deep[0].id, 'POWER_CUT', undefined, tick())).toBe('Too far away')
     place(deep[0], POWER_PANEL)
-    expect(match.sabotageAction(deep[0].id, 'POWER_CUT', tick())).toBeNull()
+    expect(match.sabotageAction(deep[0].id, 'POWER_CUT', undefined, tick())).toEqual({ closedFor: [] })
     expect(match.sabotage.powerStatus).toBe('OUT')
-    expect(match.sabotageAction(deep[1].id, 'POWER_CUT', tick())).not.toBeNull()
+    expect(match.sabotageAction(deep[1].id, 'POWER_CUT', undefined, tick())).not.toBeNull()
     place(gov[0], POWER_PANEL)
     match.openTask(gov[0].id, REPAIR_TASK_ID, tick())
     expect(match.completeTask(gov[0].id, REPAIR_TASK_ID, gov[0].openTask!.answer, tick())).toEqual({ progressed: false, restored: true })
@@ -237,5 +237,43 @@ describe('victory & disconnects (Prompt 7)', () => {
     const { rooms, match } = playing(6)
     for (const p of [...match.players.values()]) rooms.leave(p.socketId)
     expect(rooms.get(match.roomCode)).toBeUndefined()
+  })
+})
+
+describe('document leak + starting cooldown (phase 2)', () => {
+  it('leak takes one available station offline, closes open copies, blocks opening; one sabotage at a time', () => {
+    const { match, gov, deep } = playing()
+    const task = match.tasks[0]
+    place(gov[0], task.position)
+    match.openTask(gov[0].id, task.taskId, tick())
+    expect(match.sabotageAction(deep[0].id, 'DOCUMENT_LEAK', task.taskId, tick())).toBe('Too far away')
+    place(deep[0], task.position)
+    expect(match.sabotageAction(deep[0].id, 'DOCUMENT_LEAK', task.taskId, tick())).toEqual({ closedFor: [gov[0].id] })
+    expect(match.sabotage.disabledTaskIds).toEqual([task.taskId])
+    expect(gov[0].openTask).toBeNull()
+    expect(match.openTask(gov[0].id, task.taskId, tick())).toMatch(/^Documents leaked — back in \d+s$/)
+    place(deep[1], POWER_PANEL)
+    expect(match.sabotageAction(deep[1].id, 'POWER_CUT', undefined, tick())).toBe('Sabotage already active')
+  })
+
+  it('leak rejected on a completed station; meeting clears it', () => {
+    const { match, gov, deep } = playing()
+    const [t0, t1] = match.tasks
+    t0.status = 'COMPLETE'
+    place(deep[0], t0.position)
+    expect(match.sabotageAction(deep[0].id, 'DOCUMENT_LEAK', t0.taskId, tick())).toBe('Task already complete')
+    place(deep[0], t1.position)
+    match.sabotageAction(deep[0].id, 'DOCUMENT_LEAK', t1.taskId, tick())
+    match.callEmergency(gov[0].id, tick())
+    expect(match.sabotage.disabledTaskIds).toEqual([])
+  })
+
+  it('agents cannot eliminate during the starting grace period', () => {
+    const { match, gov, deep } = playing()
+    const now = tick()
+    match.beginPlay(now)
+    place(deep[0], gov[0].position)
+    expect(match.eliminate(deep[0].id, gov[0].id, now + 1000)).toMatch(/^Cooldown/)
+    expect(typeof match.eliminate(deep[0].id, gov[0].id, now + MATCH_SETTINGS.initialEliminationCooldownMs + 1)).toBe('object')
   })
 })

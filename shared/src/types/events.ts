@@ -58,6 +58,8 @@ export interface ClientToServerEvents {
 
   TASK_OPENED: (p: { taskId: string }, ack: Ack<{ puzzle: unknown }>) => void
   TASK_COMPLETED: (p: { taskId: string; payload: unknown }, ack: Ack) => void
+  /** Player dismissed a mini-game without finishing (clears their interact animation). */
+  TASK_CLOSED: () => void
 
   SABOTAGE_REQUEST: (p: { type: SabotageType; targetTaskId?: string }, ack: Ack) => void
   PLAYER_ELIMINATE_REQUEST: (p: { targetId: string }, ack: Ack) => void
@@ -86,6 +88,8 @@ export interface ServerToClientEvents {
   TASK_PROGRESS: (p: { taskId: string; completedTasks: number; totalTasks: number }) => void
   PLAYER_ELIMINATED: (p: { body: Body; livingCount: number }) => void
   COOLDOWN: (p: { eliminationReadyAt: number; sabotageReadyAt: number }) => void
+  /** Someone started/stopped working a station. Same signal for real and fake (Deep State) tasks. */
+  PLAYER_INTERACTING: (p: { playerId: string; taskId: string | null }) => void
 
   MEETING_STARTED: (p: { reason: 'BODY' | 'EMERGENCY'; callerId: string; bodyId?: string; phaseEndsAt: number }) => void
   CHAT_MESSAGE: (m: ChatMessage) => void

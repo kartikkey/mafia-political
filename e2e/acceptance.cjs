@@ -240,15 +240,19 @@ async function main() {
     const far = await emit(pages[D1], 'PLAYER_ELIMINATE_REQUEST', { targetId: ids[farGov] })
     const gp = await posOf(obsFor(D1) === G1 ? obsFor(G1) : obsFor(D1), G1)
     await walkTo(D1, gp.x, gp.y, 14)
+    // Starting grace period (initialEliminationCooldownMs) must run out first.
+    const readyAt = (await st(pages[D1])).game.eliminationReadyAt
+    const graceBlocked = await pages[D1].textContent('[data-testid="action-eliminate-reason"]')
+    console.log('starting cooldown on the Eliminate button:', graceBlocked)
+    await sleep(Math.max(0, readyAt - Date.now()) + 300)
     const btnEnabled = await pages[D1].isEnabled('[data-testid="action-eliminate"]')
-    await sleep(300)
     await pages[D1].keyboard.press('KeyQ')
     const bodies = await until(async () => {
       const b = await Promise.all(pages.map(async (p) => (await st(p)).game.match.bodies.length))
       return b.every((n) => n === 1) && b
     }, 4000)
     const victimDead = !(await st(pages[D2])).game.match.players.find((p) => p.id === ids[G1]).alive
-    check('kill', !!bodies && victimDead && btnEnabled, `${name(D1)} eliminated ${name(G1)} with Q (button enabled=${btnEnabled})`)
+    check('kill', !!bodies && victimDead && btnEnabled && /^Cooldown/.test(graceBlocked), `${name(D1)} eliminated ${name(G1)} with Q once the starting grace period ended (was "${graceBlocked}", then button enabled=${btnEnabled})`)
     const dead = await emit(pages[D2], 'PLAYER_ELIMINATE_REQUEST', { targetId: ids[G1] })
     await sleep(300)
     const cdText = await pages[D1].textContent('[data-testid="action-eliminate-reason"]')
