@@ -42,6 +42,13 @@ export interface ChatMessage {
   at: number
 }
 
+/** Meeting clue (Document Leak): who was last seen at the leaked station. */
+export interface LeakClue {
+  taskId: string
+  stationLabel: string
+  playerId: string
+}
+
 export interface GameOverPayload {
   result: Exclude<VictoryResult, 'NO_WINNER'>
   stats: PlayerMatchStats[]
@@ -71,6 +78,8 @@ export interface ClientToServerEvents {
   VOTE_SUBMITTED: (p: { choice: VoteChoice }, ack: Ack) => void
 
   RETURN_TO_LOBBY: (ack: Ack) => void
+  /** Clock sync: client estimates server-time offset from round trips. */
+  TIME_SYNC: (ack: Ack<{ serverNow: number }>) => void
 }
 
 export interface ServerToClientEvents {
@@ -91,7 +100,7 @@ export interface ServerToClientEvents {
   /** Someone started/stopped working a station. Same signal for real and fake (Deep State) tasks. */
   PLAYER_INTERACTING: (p: { playerId: string; taskId: string | null }) => void
 
-  MEETING_STARTED: (p: { reason: 'BODY' | 'EMERGENCY'; callerId: string; bodyId?: string; phaseEndsAt: number }) => void
+  MEETING_STARTED: (p: { reason: 'BODY' | 'EMERGENCY'; callerId: string; bodyId?: string; phaseEndsAt: number; clue?: LeakClue }) => void
   CHAT_MESSAGE: (m: ChatMessage) => void
   VOTE_CAST: (p: { voterId: string }) => void
   VOTE_RESULTS: (t: VoteTally) => void

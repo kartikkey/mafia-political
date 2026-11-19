@@ -150,8 +150,11 @@ export default function ParliamentCanvas(props: Props) {
       }
 
       const sorted = [...p.players].sort((a, b) => a.position.y - b.position.y)
+      const iAmGhost = !!me && !me.alive
       for (const pl of sorted) {
-        if (!pl.alive || !pl.connected) continue
+        if (!pl.connected) continue
+        const ghost = !pl.alive
+        if (ghost && !iAmGhost) continue // only the eliminated can see ghosts
         const pos = pl.id === p.meId && p.localPos.current ? p.localPos.current : pl.position
         const prev = lastPos.get(pl.id)
         if (!prev || prev.x !== pos.x || prev.y !== pos.y) lastPos.set(pl.id, { x: pos.x, y: pos.y, movedAt: t })
@@ -159,17 +162,22 @@ export default function ParliamentCanvas(props: Props) {
         const working = p.interactingIds.includes(pl.id)
         const mode = working ? 'interact' : walking ? 'walk' : 'idle'
         const a = AVATARS[pl.avatar % AVATARS.length]
-        g.fillStyle = 'rgba(0,0,0,0.35)'
-        g.fillRect(pos.x - 9, pos.y + 9, 18, 4)
-        drawSprite(g, a, pos.x - (SPRITE_W * PX) / 2, pos.y + 12 - SPRITE_H * PX, PX, pl.facing, mode, Math.floor(t / 250))
+        const float = ghost ? Math.round(Math.sin(t / 400 + pl.avatar) * 3) - 4 : 0
+        if (ghost) g.globalAlpha = 0.45
+        else {
+          g.fillStyle = 'rgba(0,0,0,0.35)'
+          g.fillRect(pos.x - 9, pos.y + 9, 18, 4)
+        }
+        drawSprite(g, a, pos.x - (SPRITE_W * PX) / 2, pos.y + 12 + float - SPRITE_H * PX, PX, pl.facing, ghost ? 'idle' : mode, Math.floor(t / 250))
+        g.globalAlpha = 1
         if (working) drawWorkBubble(g, pos.x, pos.y - 50, Math.floor(t / 300))
         g.font = '16px VT323, monospace'
         g.textAlign = 'center'
         const mate = p.teammateIds.includes(pl.id)
-        const label = mate ? `${pl.name} [AGENT]` : pl.name
+        const label = ghost ? `${pl.name} (ghost)` : mate ? `${pl.name} [AGENT]` : pl.name
         g.fillStyle = '#000'
         g.fillText(label, pos.x + 1, pos.y - 26)
-        g.fillStyle = pl.id === p.meId ? '#f2c14e' : mate ? '#ff8f84' : '#f5e6c8'
+        g.fillStyle = ghost ? '#9fb7d1' : pl.id === p.meId ? '#f2c14e' : mate ? '#ff8f84' : '#f5e6c8'
         g.fillText(label, pos.x, pos.y - 27)
       }
 

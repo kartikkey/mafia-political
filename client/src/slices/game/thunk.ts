@@ -2,6 +2,8 @@ import { createAsyncThunk } from '@reduxjs/toolkit'
 import type { Direction, SabotageType, Vec2 } from '@netagiri/shared'
 import { emitWithAck, gameSocket } from 'api/gameSocket'
 import { playSound } from 'helpers/sound'
+import { setClockOffset } from 'helpers/clock'
+import { estimateClockOffset, type ClockSample } from '@netagiri/shared'
 
 /** Fire-and-forget position sync (throttled by the caller). */
 export const sendMove = createAsyncThunk('game/sendMove', async (p: { position: Vec2; facing: Direction }) => {
@@ -38,3 +40,16 @@ export const sabotage = withReason('game/sabotage', (p: { type: SabotageType; ta
 // Prompt 6 — meetings
 export const reportBody = withReason('game/reportBody', (bodyId: string) => emitWithAck('BODY_REPORTED', { bodyId }))
 export const callEmergencyMeeting = withReason('game/emergency', (_: void) => emitWithAck('EMERGENCY_MEETING'))
+
+/** Estimate the server clock from a few TIME_SYNC round trips (lowest latency wins). */
+export const syncClock = createAsyncThunk('game/syncClock', async () => {
+  const samples: ClockSample[] = []
+  for (let i = 0; i < 4; i++) {
+    const sentAt = Date.now()
+    const { serverNow } = await emitWithAck('TIME_SYNC')
+    samples.push({ sentAt, serverNow, receivedAt: Date.now() })
+  }
+  const offset = estimateClockOffset(samples)
+  setClockOffset(offset)
+  return offset
+})

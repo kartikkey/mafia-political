@@ -12,6 +12,8 @@ import {
   TASK_STATIONS,
   assignRoles,
   checkVictory,
+  distance,
+  inMapBounds,
   isWalkable,
   roomAt,
   tallyVotes,
@@ -31,6 +33,7 @@ import {
   type VictoryResult,
   type VoteChoice,
   type VoteTally,
+  type LeakClue,
 } from '@netagiri/shared'
 import { checkAnswer, generatePuzzle, type GeneratedPuzzle } from './puzzles'
 
@@ -52,12 +55,15 @@ export interface ServerPlayer extends PublicPlayer {
   openTask: OpenTask | null
   stats: { tasksCompleted: number; eliminations: number; meetingsAttended: number }
   ejected?: boolean
+  /** Where they fell — what living players are shown while the ghost drifts. */
+  deathPosition?: Vec2
 }
 
 export interface MeetingInfo {
   reason: 'BODY' | 'EMERGENCY'
   callerId: string
   bodyId?: string
+  clue?: LeakClue
 }
 
 const IN_MATCH: MatchState[] = ['ROLE_ASSIGNMENT', 'PLAYING', 'MEETING_TRANSITION', 'DISCUSSION', 'VOTING', 'VOTE_RESULTS']
@@ -78,6 +84,8 @@ export class Match {
   votes = new Map<string, VoteChoice>()
   meeting: MeetingInfo | null = null
   lastTally: VoteTally | null = null
+  /** Survives the leak ending; shown at the next meeting of this round. */
+  leakClue: LeakClue | null = null
   result: Exclude<VictoryResult, 'NO_WINNER'> | null = null
   private timer: NodeJS.Timeout | null = null
   /** Separate from the phase timer so meetings can't wipe or double-fire it. */
@@ -107,7 +115,8 @@ export class Match {
     return [...this.players.values()].filter((p) => p.alive && p.connected)
   }
 
-  publicPlayers(): PublicPlayer[] {
+  /** `ghostView` = real ghost positions (sent only to eliminated players). */
+  publicPlayers(ghostView = true): PublicPlayer[] {
     return [...this.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
@@ -115,19 +124,19 @@ export class Match {
       isHost: p.isHost,
       connected: p.connected,
       alive: p.alive,
-      position: p.position,
+      position: !p.alive && !ghostView ? (p.deathPosition ?? p.position) : p.position,
       facing: p.facing,
       // Faction is revealed only for dead players or once the match is over (Spec §2.3).
       revealedFaction: this.state === 'GAME_OVER' || !p.alive ? (p.faction ?? undefined) : undefined,
     }))
   }
 
-  view(): ClientMatchView {
+  view(ghostView = true): ClientMatchView {
     return {
       roomCode: this.roomCode,
       state: this.state,
       phaseEndsAt: this.phaseEndsAt,
-      players: this.publicPlayers(),
+      players: this.publicPlayers(ghostView),
       tasks: this.tasks,
       completedTasks: this.completedTasks,
       totalTasks: this.tasks.length,
@@ -160,6 +169,7 @@ export class Match {
       p.openTask = null
       p.stats = freshStats()
       p.ejected = false
+      p.deathPosition = undefined
     })
 
     this.tasks = TASK_STATIONS.map((s) => ({
@@ -176,6 +186,7 @@ export class Match {
     this.meeting = null
     this.lastTally = null
     this.result = null
+    this.leakClue = null
     this.sabotageReadyAt = 0
     this.emergencyAvailableAt = 0
     this.clearSabotage()
@@ -193,16 +204,24 @@ export class Match {
   /** Validate and apply a movement update (Spec §3.3). Returns true if accepted. */
   move(playerId: string, position: Vec2, facing: Direction, now = Date.now()): boolean {
     const p = this.players.get(playerId)
-    if (!p || !p.alive || this.state !== 'PLAYING') return false
+    if (!p || !p.connected || this.state !== 'PLAYING') return false
     if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) return false
-    if (!isWalkable(position)) return false
+    if (p.alive ? !isWalkable(position) : !inMapBounds(position)) return false
     const dt = Math.max(16, now - p.lastMoveAt)
     const maxStep = (MATCH_SETTINGS.moveSpeed * dt) / 1000 + 8 // tolerance for jitter
     if (Math.hypot(position.x - p.position.x, position.y - p.position.y) > maxStep) return false
     p.position = position
     p.facing = facing
     p.lastMoveAt = now
+    this.trackLeakSighting(p)
     return true
+  }
+
+  /** Leak clue: latest living player within range of the leaked station (Spec-extension, Phase 2). */
+  private trackLeakSighting(p: ServerPlayer) {
+    const leaked = this.tasks.find((t) => t.taskId === this.sabotage.disabledTaskIds[0])
+    if (!leaked || !p.alive) return
+    if (withinRange(p.position, leaked.position, MATCH_SETTINGS.interactionRange)) this.leakClue = { taskId: leaked.taskId, stationLabel: leaked.label, playerId: p.id }
   }
 
   /** Shared guard chain (CLAUDE.md rule 3): exists → alive → PLAYING → rate limit. */
@@ -305,6 +324,7 @@ export class Match {
 
     target.alive = false
     target.openTask = null
+    target.deathPosition = { ...target.position }
     p.eliminationReadyAt = now + MATCH_SETTINGS.eliminationCooldownMs
     p.stats.eliminations++
     const body: Body = {
@@ -352,6 +372,8 @@ export class Match {
     } else {
       duration = MATCH_SETTINGS.documentLeakDurationMs
       this.sabotage = { powerStatus: 'ON', powerRestoreAt: null, disabledTaskIds: [leakTask!.taskId], leakEndsAt: now + duration }
+      const nearest = this.livingPlayers.sort((a, b) => distance(a.position, leakTask!.position) - distance(b.position, leakTask!.position))[0]
+      this.leakClue = { taskId: leakTask!.taskId, stationLabel: leakTask!.label, playerId: nearest.id }
       for (const pl of this.players.values()) {
         if (pl.openTask?.taskId === leakTask!.taskId) {
           pl.openTask = null
@@ -410,7 +432,7 @@ export class Match {
   }
 
   private beginMeeting(info: MeetingInfo) {
-    this.meeting = info
+    this.meeting = { ...info, clue: this.leakClue ?? undefined }
     this.votes.clear()
     this.lastTally = null
     this.clearSabotage()
@@ -450,6 +472,7 @@ export class Match {
       const ej = this.players.get(ejectedPlayerId)!
       ej.alive = false
       ej.ejected = true
+      ej.deathPosition = { ...ej.position }
       ejectedFaction = ej.faction
     }
     this.lastTally = { counts, ejectedPlayerId, ejectedFaction }
@@ -466,6 +489,7 @@ export class Match {
     this.bodies = []
     this.votes.clear()
     this.meeting = null
+    this.leakClue = null
     this.emergencyAvailableAt = now + MATCH_SETTINGS.emergencyMeetingCooldownMs
     this.setState('PLAYING')
   }

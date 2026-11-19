@@ -130,6 +130,10 @@ export function isSolidTile(tx: number, ty: number): boolean {
 }
 
 /** Axis-aligned check of a player's square hitbox against the tile grid. */
+/** Ghosts drift through walls and furniture but stay on the map. */
+export const inMapBounds = (pos: Vec2, margin = 16) =>
+  pos.x >= margin && pos.y >= margin && pos.x <= MAP_WIDTH - margin && pos.y <= MAP_HEIGHT - margin
+
 export function isWalkable(pos: Vec2, radius = 10): boolean {
   const corners = [
     [pos.x - radius, pos.y - radius],

@@ -19,12 +19,20 @@ export function registerGameHandlers({ io, socket, rooms }: HandlerContext) {
     if (!r || !p?.position) return
     const accepted = r.match.move(r.player.id, p.position, p.facing ?? 'down')
     if (accepted) {
-      socket.to(r.match.roomCode).emit('PLAYER_MOVED', { playerId: r.player.id, position: p.position, facing: r.player.facing })
+      const msg = { playerId: r.player.id, position: p.position, facing: r.player.facing }
+      if (r.player.alive) socket.to(r.match.roomCode).emit('PLAYER_MOVED', msg)
+      else {
+        // Ghost: only other eliminated players can see it drift.
+        const ghosts = [...r.match.players.values()].filter((x) => !x.alive && x.connected && x.id !== r.player.id).map((x) => x.socketId)
+        if (ghosts.length) io.to(ghosts).emit('PLAYER_MOVED', msg)
+      }
     } else {
       // Snap the mover back to the authoritative position.
       socket.emit('PLAYER_MOVED', { playerId: r.player.id, position: r.player.position, facing: r.player.facing })
     }
   })
+
+  socket.on('TIME_SYNC', (ack) => ack(ok({ serverNow: Date.now() })))
 
   // Prompt 3/4 — tasks & mini-games
   socket.on('TASK_OPENED', (p, ack) => {

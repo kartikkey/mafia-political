@@ -5,6 +5,7 @@ import { useMatchNavigation } from 'common/hooks/useMatchNavigation'
 import { useCurrentPlayer } from 'common/hooks/useCurrentPlayer'
 import { useRerenderEvery } from 'common/hooks/useRerenderEvery'
 import GameLayout from 'layout/GameLayout'
+import { secondsUntil } from 'helpers/clock'
 import { callEmergencyMeeting, eliminatePlayer, openTask, reportBody, sabotage } from 'slices/game/thunk'
 import ParliamentCanvas from './components/ParliamentCanvas'
 import RoleReveal from './components/RoleReveal'
@@ -16,18 +17,21 @@ import TaskModal from './components/TaskModal'
 import PowerCutOverlay from './components/PowerCutOverlay'
 import LeakBanner from './components/LeakBanner'
 import { useZoom } from './hooks/useZoom'
+import { useMapToggle } from './hooks/useMapToggle'
+import MapOverlay from './components/MapOverlay'
 import { useLocalMovement } from './hooks/useLocalMovement'
 import { useProximity } from './hooks/useProximity'
 import { useGameHotkeys } from './hooks/useGameHotkeys'
 import './Game.scss'
 
-const cooldownLeft = (readyAt: number) => Math.ceil((readyAt - Date.now()) / 1000)
+const cooldownLeft = secondsUntil
 
 export default function Game() {
   useMatchNavigation()
   const dispatch = useAppDispatch()
   const { match, role, feedback, feedbackAt, activeTaskId, eliminationReadyAt, sabotageReadyAt, interacting } = useAppSelector((s) => s.game)
   const { zoom, cycleZoom } = useZoom()
+  const { mapOpen, toggleMap, closeMap } = useMapToggle()
   const playerId = useAppSelector((s) => s.join.playerId)
   const me = useCurrentPlayer()
   const { pos } = useLocalMovement()
@@ -124,16 +128,19 @@ export default function Game() {
           {prompt && <div className="game__prompt" data-testid="interaction-prompt">{prompt}</div>}
           {!alive && match.state !== 'ROLE_ASSIGNMENT' && (
             <div className="game__dead" role="status" data-testid="eliminated-banner">
-              You have been eliminated — you can watch, but not move, vote or chat.
+              You are a ghost — drift anywhere (even through walls) to watch. Only other ghosts can see you. No voting, chat or actions.
             </div>
           )}
         </div>
         <Hud role={role} leakedIds={leakedIds} tasks={match.tasks} completed={match.completedTasks} total={match.totalTasks} players={match.players} />
         <PlayersAlive players={match.players} />
-        <ControlsLegend deep={deep} zoom={zoom} onZoom={cycleZoom} />
+        <ControlsLegend deep={deep} zoom={zoom} onZoom={cycleZoom} onMap={toggleMap} />
         <ActionBar actions={actions} feedback={feedback} feedbackAt={feedbackAt} />
       </div>
       <TaskModal tasks={match.tasks} />
+      {mapOpen && match.state === 'PLAYING' && (
+        <MapOverlay tasks={match.tasks} disabledTaskIds={leakedIds} me={pos.current ?? me?.position ?? null} onClose={closeMap} />
+      )}
       {match.state === 'ROLE_ASSIGNMENT' && <RoleReveal role={role} players={match.players} />}
     </GameLayout>
   )

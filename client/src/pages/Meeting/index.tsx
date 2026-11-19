@@ -16,6 +16,7 @@ import { submitVote } from 'slices/meeting/thunk'
 import PlayerVoteCard from './components/PlayerVoteCard'
 import ChatPanel from './components/ChatPanel'
 import VoteResults from './components/VoteResults'
+import LeakClueCard from './components/LeakClueCard'
 import './Meeting.scss'
 
 const PHASE_LABEL: Record<string, string> = {
@@ -29,7 +30,7 @@ export default function Meeting() {
   useMatchNavigation()
   const dispatch = useAppDispatch()
   const match = useAppSelector((s) => s.game.match)
-  const { reason, callerId, votedPlayerIds, myVote, tally, submitLoading, error } = useAppSelector((s) => s.meeting)
+  const { reason, callerId, clue, votedPlayerIds, myVote, tally, submitLoading, error } = useAppSelector((s) => s.meeting)
   const me = useCurrentPlayer()
   const [choice, setChoice] = useState<VoteChoice | null>(null)
   if (!match) return null
@@ -51,6 +52,7 @@ export default function Meeting() {
         </header>
 
         {state === 'MEETING_TRANSITION' && <div className="meeting__transition" data-testid="meeting-transition">LOK SABHA IS NOW IN SESSION</div>}
+        {clue && <LeakClueCard clue={clue} players={match.players} />}
 
         <div className="meeting__body">
           <PixelPanel title={state === 'VOTING' ? (myVote ? 'Vote confirmed' : 'Cast your vote') : 'Members present'} className="meeting__panel">

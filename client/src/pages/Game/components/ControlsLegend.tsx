@@ -1,7 +1,7 @@
-import { ZoomIn } from 'lucide-react'
+import { Map as MapIcon, ZoomIn } from 'lucide-react'
 
 /** Bottom-left controls legend (Board 1 & 2). Space is the primary Report key (Spec §3.1). */
-export default function ControlsLegend({ deep, zoom, onZoom }: { deep: boolean; zoom: number; onZoom: () => void }) {
+export default function ControlsLegend({ deep, zoom, onZoom, onMap }: { deep: boolean; zoom: number; onZoom: () => void; onMap: () => void }) {
   const rows: [string, string][] = [
     ['WASD', 'Move'],
     ['E', deep ? 'Use / Cut power' : 'Use'],
@@ -16,6 +16,9 @@ export default function ControlsLegend({ deep, zoom, onZoom }: { deep: boolean; 
       ))}
       <button className="hud__zoom" onClick={onZoom} data-testid="zoom-toggle">
         <kbd>Z</kbd> <ZoomIn size={14} aria-hidden /> Zoom {zoom === 1 ? 'full map' : `${zoom}×`}
+      </button>
+      <button className="hud__zoom" onClick={onMap} data-testid="map-toggle">
+        <kbd>M</kbd> <MapIcon size={14} aria-hidden /> Map
       </button>
     </aside>
   )

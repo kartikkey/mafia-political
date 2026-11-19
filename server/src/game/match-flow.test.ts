@@ -277,3 +277,36 @@ describe('document leak + starting cooldown (phase 2)', () => {
     expect(typeof match.eliminate(deep[0].id, gov[0].id, now + MATCH_SETTINGS.initialEliminationCooldownMs + 1)).toBe('object')
   })
 })
+
+describe('ghosts, leak clue (phase 3)', () => {
+  it('eliminated players drift through walls (in bounds) and living players see only the death spot', () => {
+    const { match, gov, deep } = playing()
+    place(deep[0], gov[0].position)
+    match.eliminate(deep[0].id, gov[0].id, tick())
+    const ghost = gov[0]
+    const start = { ...ghost.position }
+    ghost.lastMoveAt = clock
+    // straight up into the top wall row (y=16 is wall) — allowed for a ghost
+    expect(match.move(ghost.id, { x: start.x, y: start.y - 60 }, 'up', clock + 1000)).toBe(true)
+    expect(match.move(ghost.id, { x: start.x, y: 2 }, 'up', clock + 2000)).toBe(false) // off-map
+    expect(match.view(false).players.find((p) => p.id === ghost.id)!.position).toEqual(start)
+    expect(match.view(true).players.find((p) => p.id === ghost.id)!.position.y).toBe(start.y - 60)
+    expect(match.openTask(ghost.id, match.tasks[0].taskId, tick())).toBe('You have been eliminated')
+  })
+
+  it('leak clue = last living player seen at the leaked station, attached to the next meeting', () => {
+    const { match, gov, deep } = playing()
+    const task = match.tasks[0]
+    place(deep[0], task.position)
+    match.sabotageAction(deep[0].id, 'DOCUMENT_LEAK', task.taskId, tick())
+    expect(match.leakClue?.playerId).toBe(deep[0].id)
+    place(gov[0], { x: task.position.x + 20, y: task.position.y })
+    gov[0].lastMoveAt = clock
+    expect(match.move(gov[0].id, { x: task.position.x + 10, y: task.position.y }, 'left', clock + 500)).toBe(true)
+    expect(match.leakClue?.playerId).toBe(gov[0].id)
+    match.callEmergency(gov[1].id, tick())
+    expect(match.meeting?.clue).toEqual({ taskId: task.taskId, stationLabel: task.label, playerId: gov[0].id })
+    match.resumePlay(clock)
+    expect(match.leakClue).toBeNull()
+  })
+})

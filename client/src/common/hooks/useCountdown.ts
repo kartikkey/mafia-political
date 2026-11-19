@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { secondsUntil } from 'helpers/clock'
 
 /** Seconds remaining until a server timestamp (Spec §10.1: server owns time). */
 export function useCountdown(endsAt: number | null | undefined): number {
-  const calc = () => (endsAt ? Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)) : 0)
+  const calc = () => secondsUntil(endsAt)
   const [left, setLeft] = useState(calc)
   useEffect(() => {
     setLeft(calc())

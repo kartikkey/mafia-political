@@ -6,7 +6,14 @@ import { MATCH_SETTINGS, type MatchState, type NewsKey } from '@netagiri/shared'
 import type { IO } from '../handlers/types'
 import type { Match } from './Match'
 
-export const broadcastMatch = (io: IO, match: Match) => io.to(match.roomCode).emit('MATCH_STATE', match.view())
+/** Living players get ghost positions masked (they only ever see where someone fell). */
+export function broadcastMatch(io: IO, match: Match) {
+  const players = [...match.players.values()].filter((p) => p.connected)
+  const living = players.filter((p) => p.alive || !match.inMatch).map((p) => p.socketId)
+  const ghosts = players.filter((p) => !p.alive && match.inMatch).map((p) => p.socketId)
+  if (living.length) io.to(living).emit('MATCH_STATE', match.view(false))
+  if (ghosts.length) io.to(ghosts).emit('MATCH_STATE', match.view(true))
+}
 
 export const news = (io: IO, match: Match, key: NewsKey) => io.to(match.roomCode).emit('NEWS', { key, at: Date.now() })
 
@@ -31,7 +38,7 @@ export function finishIfWon(io: IO, match: Match): boolean {
 /** After Match.report / Match.callEmergency succeeded. */
 export function announceMeeting(io: IO, match: Match) {
   const m = match.meeting!
-  io.to(match.roomCode).emit('MEETING_STARTED', { reason: m.reason, callerId: m.callerId, bodyId: m.bodyId, phaseEndsAt: match.phaseEndsAt ?? Date.now() })
+  io.to(match.roomCode).emit('MEETING_STARTED', { reason: m.reason, callerId: m.callerId, bodyId: m.bodyId, phaseEndsAt: match.phaseEndsAt ?? Date.now(), clue: m.clue })
   news(io, match, m.reason === 'BODY' ? 'BODY_REPORTED' : 'MEETING_STARTED')
   broadcastMatch(io, match)
 }

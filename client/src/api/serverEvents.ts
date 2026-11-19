@@ -19,9 +19,15 @@ import {
 import { chatReceived, meetingStarted, voteCast, voteResults } from 'slices/meeting/reducer'
 import { gameOverReceived } from 'slices/results/reducer'
 import { playSound } from 'helpers/sound'
+import { syncClock } from 'slices/game/thunk'
 
 export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId: () => string | null) {
-  socket.on('connect', () => dispatch(setConnected(true)))
+  // Thunk dispatch through the plain Dispatch type (store is configured with thunk middleware).
+  const resync = () => void (dispatch as (a: unknown) => unknown)(syncClock())
+  socket.on('connect', () => {
+    dispatch(setConnected(true))
+    resync()
+  })
   socket.on('disconnect', () => {
     dispatch(setConnected(false))
     dispatch(connectionLost())
@@ -31,6 +37,7 @@ export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId
   socket.on('ROOM_CLOSED', ({ reason }) => dispatch(roomClosed(reason)))
 
   socket.on('GAME_STARTED', (view) => {
+    resync()
     playSound('start')
     dispatch(matchUpdated(view))
   })

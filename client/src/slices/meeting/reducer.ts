@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import type { ChatMessage, VoteChoice, VoteTally } from '@netagiri/shared'
+import type { ChatMessage, LeakClue, VoteChoice, VoteTally } from '@netagiri/shared'
 import { leaveRoom } from 'slices/join/thunk'
 import { connectionLost } from 'slices/join/reducer'
 import { sendChat, submitVote } from './thunk'
@@ -8,6 +8,7 @@ interface MeetingState {
   reason: 'BODY' | 'EMERGENCY' | null
   callerId: string | null
   bodyId: string | null
+  clue: LeakClue | null
   chat: ChatMessage[]
   votedPlayerIds: string[]
   myVote: VoteChoice | null
@@ -20,6 +21,7 @@ const initialState: MeetingState = {
   reason: null,
   callerId: null,
   bodyId: null,
+  clue: null,
   chat: [],
   votedPlayerIds: [],
   myVote: null,
@@ -33,11 +35,12 @@ const meetingSlice = createSlice({
   initialState,
   reducers: {
     resetMeeting: () => initialState,
-    meetingStarted: (_state, action: PayloadAction<{ reason: 'BODY' | 'EMERGENCY'; callerId: string; bodyId?: string }>) => ({
+    meetingStarted: (_state, action: PayloadAction<{ reason: 'BODY' | 'EMERGENCY'; callerId: string; bodyId?: string; clue?: LeakClue }>) => ({
       ...initialState,
       reason: action.payload.reason,
       callerId: action.payload.callerId,
       bodyId: action.payload.bodyId ?? null,
+      clue: action.payload.clue ?? null,
     }),
     chatReceived: (state, action: PayloadAction<ChatMessage>) => {
       state.chat = [...state.chat.slice(-49), action.payload]
