@@ -18,14 +18,14 @@ interface Brain {
   chatAt: number | null
 }
 
-const brains = new Map<string, Brain>()
 /** How far an MP bot notices a body (world px). */
 const SIGHT_RANGE = 200
 /** Agents hesitate: chance per tick to strike when a lone target is in reach. */
 const KILL_CHANCE_PER_TICK = 0.12
-const brainOf = (id: string) => {
-  let b = brains.get(id)
-  if (!b) brains.set(id, (b = { path: [], goalTaskId: null, workUntil: 0, idleUntil: 0, voteAt: null, chatAt: null }))
+/** Brains live on the match so they are dropped with the room. */
+const brainOf = (match: Match, id: string) => {
+  let b = match.botBrains.get(id) as Brain | undefined
+  if (!b) match.botBrains.set(id, (b = { path: [], goalTaskId: null, workUntil: 0, idleUntil: 0, voteAt: null, chatAt: null }))
   return b
 }
 const rand = (a: number, b: number) => a + Math.random() * (b - a)
@@ -79,13 +79,13 @@ function step(io: IO, match: Match, bot: ServerPlayer, brain: Brain, dtMs: numbe
 }
 
 function playTurn(io: IO, match: Match, bot: ServerPlayer, now: number, dtMs: number) {
-  const brain = brainOf(bot.id)
+  const brain = brainOf(match, bot.id)
   const deep = bot.faction === 'DEEP_STATE'
   const living = match.livingPlayers
 
   // Report any body in reach (agents only report their own handiwork sometimes, to look innocent).
   const body = match.bodies.find((b) => !b.reported && withinRange(bot.position, b.position, MATCH_SETTINGS.reportRange))
-  if (body && (!deep || Math.random() < 0.02)) {
+  if (body && (!deep || Math.random() < 0.004)) {
     actReport(io, match, bot, body.bodyId)
     return
   }
@@ -114,7 +114,7 @@ function playTurn(io: IO, match: Match, bot: ServerPlayer, now: number, dtMs: nu
     if (now >= brain.workUntil) {
       actCompleteTask(io, match, bot, bot.openTask.taskId, bot.openTask.answer ?? { held: true })
       brain.goalTaskId = null
-      brain.idleUntil = now + rand(500, 2500)
+      brain.idleUntil = now + rand(1500, 4000)
     }
     return
   }
@@ -123,7 +123,7 @@ function playTurn(io: IO, match: Match, bot: ServerPlayer, now: number, dtMs: nu
   const goal = match.tasks.find((t) => t.taskId === brain.goalTaskId)
   if (goal && goal.status !== 'COMPLETE' && withinRange(bot.position, goal.position, MATCH_SETTINGS.interactionRange - 8)) {
     if (deep && Math.random() < 0.15) actSabotage(io, match, bot, 'DOCUMENT_LEAK', goal.taskId)
-    else if (typeof actOpenTask(io, match, bot, goal.taskId) !== 'string') brain.workUntil = now + rand(3500, 6000)
+    else if (typeof actOpenTask(io, match, bot, goal.taskId) !== 'string') brain.workUntil = now + rand(5000, 9000)
     brain.path = []
     return
   }
@@ -142,7 +142,7 @@ function playTurn(io: IO, match: Match, bot: ServerPlayer, now: number, dtMs: nu
 }
 
 function meetingTurn(io: IO, match: Match, bot: ServerPlayer, now: number) {
-  const brain = brainOf(bot.id)
+  const brain = brainOf(match, bot.id)
   const others = match.livingPlayers.filter((p) => p.id !== bot.id)
   if (match.state === 'DISCUSSION') {
     brain.voteAt = null
@@ -179,6 +179,4 @@ export function runBots(io: IO, match: Match, now: number, dtMs: number) {
   }
 }
 
-export const forgetBots = (match: Match) => {
-  for (const id of match.players.keys()) brains.delete(id)
-}
+export const forgetBots = (match: Match) => match.botBrains.clear()

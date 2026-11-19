@@ -58,7 +58,7 @@ export default function Lobby() {
             <p>Waiting for the host to start…</p>
           )}
           {error && <p className="error-text" role="alert">{error}</p>}
-          <PixelButton variant="ghost" onClick={() => dispatch(leaveRoom())}>Leave</PixelButton>
+          <PixelButton variant="ghost" onClick={() => dispatch(leaveRoom())} data-testid="lobby-leave-btn">Leave</PixelButton>
         </PixelPanel>
       </div>
     </div>

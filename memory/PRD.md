@@ -34,6 +34,14 @@ Out of scope: Media Center, journalists/lobbyists, bribery, voice chat, multiple
 - Shared clock: TIME_SYNC (lowest-RTT of 4 samples, resync every 60s); all countdowns use serverNow().
 - Tests: 55 unit; acceptance 18/18; e2e/phase3.cjs 5/5; testing agent iteration_3 21/21.
 
+## Iteration 4 (2026-06)
+- Computer players (user-requested scope change; originally out of scope): host "Fill N seats with bots" / "Remove bots"; real joiners bump a bot; room closes when only bots remain.
+  Bots act via the same validated actions (game/actions.ts) on a 200ms server tick (game/ticker.ts, game/bots.ts: BFS pathing, tasks, kills on lone MPs, leaks, reports, chat, votes).
+- Meeting replay: last 10s (200ms frames) of living players within 7 tiles of the body, sent with MEETING_STARTED for body reports; 2× mini-map playback.
+- Badges (shared/rules/badges.ts): Bill Passer, Master Bluffer, Silent Assassin, Sharp Eye, First Responder, Power Broker, Survivor.
+- Ghost whispers: eliminated players chat any time in a match, delivered only to other ghosts (in-game panel + meeting panel).
+- Tests: 62 unit (incl. full bot-only match simulation); acceptance 18/18; e2e/bots.cjs solo match; testing agent iteration_4 fixes applied.
+
 ## Backlog
 - P1: deploy verification on Emergent hosting (Node server).
 - P2: rejoin after disconnect, voice chat.

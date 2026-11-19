@@ -26,6 +26,9 @@ describe('computer players', () => {
     rooms.join('late', match.roomCode, 'Late', 2)
     expect(match.connectedPlayers).toHaveLength(10)
     expect(match.connectedPlayers.filter((p) => p.isBot)).toHaveLength(4)
+    // a rejected join (duplicate name) must not bump a bot
+    expect(rooms.join('dup', match.roomCode, 'Late', 3)).toBe('Name already taken in this room')
+    expect(match.connectedPlayers.filter((p) => p.isBot)).toHaveLength(4)
     match.dispose()
   })
 

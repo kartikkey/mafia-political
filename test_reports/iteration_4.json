@@ -1,0 +1,43 @@
+{
+  "summary": "Tested the 4 new features: Bots, Meeting Replay, Badges and Ghost Whispers. Four new scripts were used: e2e/t1-iter4-features.cjs (6 human Chromium contexts, deterministic kill → body report → vote → emergency → Gov win, 29/30), e2e/t1-bots-socket.cjs (socket.io-client lobby/bump/close/mixed 3 humans + 3 bots, 12/13), e2e/t1-bots-solo.cjs (1 human + 5 bots full match, run twice: localhost and the public preview URL, 17/18 combined) and e2e/t1-bots-leave.cjs (room closes mid-match when the last human leaves, PASS). All four features work. One real bug: joining a FULL room with a duplicate name removes a bot even though the join is rejected. The other two 'failures' are test-side or random: the BOT-badge text locator also matched 'Bot …' names, and solo run A had no body because Government bots finished all 12 tasks in 42s before the Deep bot killed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "socket JOIN_ROOM (RoomManager.join)", "issue": "When the room is full (10), the bot is bumped BEFORE the 'Name already taken' check. A rejected join with a duplicate name still deletes a bot, so the room goes from 10 to 9 players and from 3 bots to 2. No LOBBY_UPDATED is pushed either, so clients show a stale roster until the next push. Fix: move the duplicate-name check above the bump block in RoomManager.join."},
+      {"endpoint": "shared/src/rules/badges.ts SHARP_EYE", "issue": "Uses top(stats …), which includes Deep State voters. In the test, Deep agent TEST_C voting out teammate TEST_D got votesOnAgents=1. A Deep agent could tie for or win Sharp Eye by throwing a teammate under the bus. Consider limiting it to Government voters (gov)."},
+      {"endpoint": "server/src/game/bots.ts brains Map", "issue": "Module-level brains are only cleared by forgetBots on RETURN_TO_LOBBY. Match.dispose() (room closed) never clears them, which causes a slow memory leak on a long-running server."},
+      {"endpoint": "Bot balance", "issue": "Solo run A: 4 Government bots completed 12/12 tasks in ~42s of PLAYING. The Deep bot made 0 kills (12s grace plus the lone-target rule), so the match ended before any meeting. Matches with an idle human Deep agent may feel too short. Consider a longer bot work time or more tasks per bot."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Meeting replay (ReplayPanel)", "issues": ["Name labels of stacked or nearby players overlap and become unreadable (e.g. 'TESTLCA', 'TESTEBT_E'). Consider offsetting or stacking labels, or showing only initials."]},
+      {"screen": "Meeting (ghost view, 1280x800)", "issues": ["The ghost-chat panel in the right column is taller than the viewport, so its input and Send button sit below the fold. The user has to scroll to whisper. Consider capping the chat height so the input stays visible."]},
+      {"screen": "Game (ghost view)", "issues": ["The ghost-chat panel is centred at the bottom and covers part of the play area. The red 'You are a ghost' banner overlaps the action-button row (Meeting/Sabotage buttons)."]},
+      {"screen": "Lobby", "issues": ["The BOT badge in PlayerRoster has no data-testid, and neither does the Lobby 'Leave' button."]}
+    ]
+  },
+  "test_report_links": ["/app/e2e/t1-iter4-features.cjs", "/app/e2e/t1-bots-socket.cjs", "/app/e2e/t1-bots-solo.cjs", "/app/e2e/t1-bots-leave.cjs"],
+  "action_items": [
+    "RoomManager.join: run the duplicate-name check before bumping a bot, so a rejected join never removes a bot.",
+    "Optional: restrict SHARP_EYE to Government voters.",
+    "Optional: clear bot brains in Match.dispose / on room close.",
+    "Optional: fix overlapping replay name labels, and keep the meeting chat input visible at 800px height.",
+    "Optional: add data-testid to the roster BOT badge and the Lobby Leave button."
+  ],
+  "critical_code_review_comments": [
+    "RoomManager.join: the bump-before-validate ordering bug (reproduced).",
+    "addPlayer spawn uses players.size % SPAWN_POINTS, which can duplicate a lobby spawn after a bump. This is harmless, because Match.start reassigns spawns.",
+    "Bot Deep agents report their own kill with a 2% chance per 200ms tick while in range, about 10%/s, so self-reports are fairly common. Run B: Bot Khan had k2, r1."
+  ],
+  "updated_files": ["/app/e2e/t1-iter4-features.cjs", "/app/e2e/t1-bots-socket.cjs", "/app/e2e/t1-bots-solo.cjs", "/app/e2e/t1-bots-leave.cjs"],
+  "success_rate": {"backend": "95% (1 real bug among the socket checks)", "frontend": "100% of feature checks (the 1 locator failure was test-side: BOT badges confirmed in the screenshot and in store isBot flags)"},
+  "test_credentials": "None (no auth).",
+  "seed_data_creation": "No persistent data. Only ephemeral in-memory rooms with TEST_ names; all sockets disconnected and the rooms closed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Verified working: lobby add-bots-btn text ('Fill 5/4 seats'); add/remove bots (Bot Sharma, Iyer, Reddy, Das…); non-host buttons hidden and socket rejections; add-bots-btn hidden at quorum; full-room bump (10 → 10, bots 4 → 3); room closes when the last human leaves, in the lobby and mid-match; mixed 3 humans + 3 bots: bots move and complete tasks. Solo 1+5 on the preview URL: a bot killed and reported, the replay showed (50 frames), a bot chatted ('Skip unless we have proof.'), voting closed early (9.2s), DEEP_STATE_WINS, badges shown. 6-human run: replay on all 6 clients, 50 frames, radius 224, ends 'Body found here' after about 5s, the Replay button restarts it at −9s, canvas drawn. Emergency meeting: no replay in the DOM or the store. Ghost panel swap in meetings works: ghost sees only ghost-chat, living see only chat. Ghost messages never reach the living (DOM and full store checked), including raw socket CHAT_SEND from a ghost. Living ghosts don't see the living debate. Two ghosts whisper both ways in PLAYING and in the second meeting. Ghost vote is rejected. Badges: SILENT_ASSASSIN, SHARP_EYE (3-way tie listed), FIRST_RESPONDER, SURVIVOR (excludes the dead) on all 6 clients; zero-score badges hidden. Re-run with: node e2e/t1-iter4-features.cjs http://localhost:3000 (~160s, includes a 60s emergency cooldown wait).",
+  "rca of the issue": "Bump bug: in RoomManager.join, `if (connectedPlayers.length >= maxPlayers) { removeBot(...) }` runs before `if (name taken) return 'Name already taken'`. Repro: create a room, add bots, fill it to 10 with humans plus bots, then join with an existing human's name. The ack is rejected, but bots drop from 3 to 2 (seen after the next LOBBY_UPDATED). Mitigation: validate the name first, then bump."
+}

@@ -38,13 +38,13 @@ export class RoomManager {
     const match = this.get(roomCode)
     if (!match) return 'Room not found'
     if (match.state !== 'WAITING') return 'Match already in progress'
+    if (match.connectedPlayers.some((p) => p.name.toLowerCase() === name.toLowerCase())) return 'Name already taken in this room'
     if (match.connectedPlayers.length >= MATCH_SETTINGS.maxPlayers) {
-      // A real player bumps a computer player.
+      // A real player bumps a computer player (only once the join is otherwise valid).
       const bot = match.connectedPlayers.find((p) => p.isBot)
       if (!bot) return 'Room is full'
       this.removeBot(match, bot.id)
     }
-    if (match.connectedPlayers.some((p) => p.name.toLowerCase() === name.toLowerCase())) return 'Name already taken in this room'
     return { match, player: this.addPlayer(match, socketId, name, avatar, false) }
   }
 

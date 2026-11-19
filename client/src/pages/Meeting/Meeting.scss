@@ -113,3 +113,7 @@
     background: var(--c-primary); color: var(--c-ink); border: 3px solid #000; cursor: pointer; font: inherit;
   }
 }
+
+.meeting__side .chat { min-height: 0; }
+.meeting__side .chat__list { max-height: 220px; min-height: 80px; }
+.meeting__side .replay__canvas { max-width: 240px; }

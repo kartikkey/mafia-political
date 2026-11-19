@@ -96,6 +96,8 @@ export class Match {
   private bodySeq = 0
   /** Bot/replay ticker (game/ticker.ts). */
   tickTimer: NodeJS.Timeout | null = null
+  /** Computer-player memory (game/bots.ts). */
+  botBrains = new Map<string, unknown>()
   /** Ring buffer of living positions for body-report replays. */
   private frames: { at: number; players: { id: string; x: number; y: number }[] }[] = []
 

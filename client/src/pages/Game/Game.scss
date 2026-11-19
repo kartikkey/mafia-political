@@ -26,7 +26,7 @@
 
   &__dead {
     position: absolute;
-    bottom: 64px;
+    top: 112px;
     left: 50%;
     transform: translateX(-50%);
     background: var(--c-red);
@@ -347,10 +347,9 @@
 
 .game__ghost-chat {
   position: absolute;
-  left: 50%;
-  bottom: 110px;
-  transform: translateX(-50%);
-  width: 420px;
+  left: 236px;
+  bottom: var(--s-3);
+  width: 340px;
   z-index: 6;
   opacity: 0.94;
   .chat { min-height: 0; }
