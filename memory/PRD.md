@@ -42,7 +42,13 @@ Out of scope: Media Center, journalists/lobbyists, bribery, voice chat, multiple
 - Ghost whispers: eliminated players chat any time in a match, delivered only to other ghosts (in-game panel + meeting panel).
 - Tests: 62 unit (incl. full bot-only match simulation); acceptance 18/18; e2e/bots.cjs solo match; testing agent iteration_4 fixes applied.
 
+## Lobby invites (2026-06)
+- Copy invite link (`origin/?room=CODE`) + native Share + manual-copy fallback; /?room= prefills Join code with invite note.
+- Host-only per-bot remove (REMOVE_BOT {playerId}, server-validated); Remove-all kept. Mobile: Session panel shown above roster.
+- Tested: iteration_6 (100%).
+
 ## Backlog
+- Phase 2: QR code of invite link; host kick human players. Phase 3: private/public rooms; "play again with same group" link.
 - P1: deploy verification on Emergent hosting (Node server).
 - P2: rejoin after disconnect, voice chat.
 - Deployment: Emergent deploy pipeline expects backend/frontend layout — Node server deploy unverified.
