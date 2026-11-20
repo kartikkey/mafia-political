@@ -8,10 +8,10 @@ docs/specs/gameplay-spec.txt wins on behaviour). Prompts 1–2 were done; implem
 Out of scope: Media Center, journalists/lobbyists, bribery, voice chat, multiple maps, bots.
 
 ## Architecture
-- shared/: types, event contracts, MATCH_SETTINGS/MINIGAME_ENABLED, puzzle types, pure rules, map (12 task stations, REPAIR_TASK_ID).
-- server/: Match.ts (all validation), puzzles.ts (server-held answers), game/flow.ts (broadcasts, phase timers, victory), handlers.
-- client/: api/ (socket + listeners), slices/ thunks, pages Join/Lobby/Game/Meeting/Results, helpers sprites/tiles/sound.
-- Emergent preview: /app/frontend/package.json `start` → `npm run preview:emergent` (client :3000, server :8001, socket path /api/socket.io). No /app/backend (no Python).
+- (2026-06, deploy fix) Server rewritten in Python at user's request so Emergent deploy works:
+  - backend/: FastAPI + python-socketio (`uvicorn server:app`, :8001, path /api/socket.io). game/{shared,match,puzzles,flow,actions,bots,rooms,io}.py — 1:1 port of the old Node server; io.py = ordered emit queue. In-memory state (no DB use; MONGO_URL/DB_NAME kept in .env).
+  - frontend/: React + Vite client (moved from client/); src/shared = TS copy of types/contracts/settings/map (alias @netagiri/shared) — keep in sync with backend/game/shared.py. `yarn build` → frontend/build.
+  - Old server/, client/, shared/ removed. Tests: backend/tests/test_netagiri_socket.py, e2e/*.cjs (acceptance 18/18, phase3 5/5, bots pass on Python server).
 
 ## Implemented (2026-06)
 - P3 tasks + shared progress, P4 three mini-games (HOLD fallback per type), P5 elimination + Power Cut (own timer, repair at panel or RESTORE_POWER task),
