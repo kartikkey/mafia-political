@@ -380,17 +380,18 @@ async function main() {
         const title = await pages[viewer].textContent('[data-testid="results-title"]')
         const rowsShown = await pages[viewer].$$eval('[data-testid^="reveal-row-"]', (r) => r.length)
         const factionsOk = go.stats.length === 6 && go.stats.every((s) => s.faction === factions[ids.indexOf(s.playerId)])
-        const hostBtn = await host.isVisible('[data-testid="back-to-lobby-btn"]')
-        const waitTxt = await pages[viewer].isVisible('[data-testid="waiting-for-host"]')
-        check('results', title === 'Democracy survives!' && rowsShown === 6 && factionsOk && hostBtn && waitTxt, `title "${title}", ${rowsShown} rows, factions match=${factionsOk}, host button=${hostBtn}, others "Waiting for host…"=${waitTxt}`)
+        // Since PR #1 every player gets "Play again" (no host-only button / "Waiting for host…").
+        const hostBtn = await host.isVisible('[data-testid="play-again-btn"]')
+        const otherBtn = await pages[viewer].isVisible('[data-testid="play-again-btn"]')
+        check('results', title === 'Democracy survives!' && rowsShown === 6 && factionsOk && hostBtn && otherBtn, `title "${title}", ${rowsShown} rows, factions match=${factionsOk}, Play again: host=${hostBtn}, other player=${otherBtn}`)
       }
     }
   }
 
   mark('7. Back')
   // ── 7. Back to lobby, second match: disconnect → parity win ──
-  if (await host.isVisible('[data-testid="back-to-lobby-btn"]')) {
-    await host.click('[data-testid="back-to-lobby-btn"]')
+  if (await host.isVisible('[data-testid="play-again-btn"]')) {
+    await host.click('[data-testid="play-again-btn"]')
     await Promise.all(pages.map((p) => onUrl(p, /\/lobby\//, 6000)))
     await host.click('text=Start Game')
     await Promise.all(pages.map((p) => onUrl(p, /\/game\//, 10000)))
