@@ -17,25 +17,39 @@ Visual target: see [`docs/references/`](docs/references/README.md).
 
 ## Quick start
 
+Needs Node 22 and Python 3.11+.
+
 ```bash
-nvm use            # Node 22
-npm install
-npm run dev        # server http://localhost:8001 (socket path /api/socket.io) · client http://localhost:5173
-# Emergent preview: supervisor runs `frontend/` → `npm run preview:emergent` (client :3000, server :8001)
+python3 -m venv .venv && source .venv/bin/activate
+npm run setup                       # root + frontend npm packages, local Python packages
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+npm run dev                         # backend http://localhost:8001 · frontend http://localhost:3000
 ```
 
-Open the client in 6+ browser windows (or devices on your LAN — the client
-proxies `/api` to the server via `VITE_PROXY_TARGET` in `client/.env`; set `CLIENT_ORIGIN` in `server/.env`), create
-a room in one, join with the 5-letter code in the others, and start.
+Open http://localhost:3000, create a room, then either join from 5 more browser
+windows with the 5-letter code or invite link, or press **Fill seats with bots**
+to play solo.
+
+To play from phones on the same Wi-Fi, open `http://<your-computer's-LAN-IP>:3000`.
+The frontend forwards `/api` to the backend, so only port 3000 needs to be reachable.
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Server (tsx watch) + client (Vite) together |
-| `npm test` | Vitest — shared rules + server match logic |
-| `npm run typecheck` | `tsc` across shared, server, client |
-| `npm run build` | Production client build → `client/dist` |
-| `node e2e/smoke.cjs` | 6-browser Playwright smoke (lobby → roles → movement); needs `npm run dev` |
-| `node e2e/acceptance.cjs [url]` | Spec §13 acceptance pass with 6 browsers (~4 min, default http://localhost:3000) |
+| `npm run dev` | Backend (uvicorn, auto-reload) + frontend (Vite) together |
+| `npm run dev:backend` / `npm run dev:frontend` | Just one of them |
+| `npm run typecheck` | Frontend `tsc` |
+| `npm run build` | Production frontend build → `frontend/build` |
+| `npm run test:backend` | pytest suites (10 tests, ~4 min). Needs the backend running |
+| `npm run test:e2e` | Spec §13 acceptance pass with 6 browsers (~4 min). Needs `npm run dev` running |
+
+The e2e scripts use the `playwright` version pinned in the root
+`package.json`. If its browser isn't installed, run `npx playwright install chromium`,
+or point `PLAYWRIGHT_CHROME_EXECUTABLE_PATH` at an existing Chromium.
+
+`backend/requirements.txt` is the Emergent deployment environment and pulls
+packages from a private host. For local use, `npm run setup` installs
+`backend/requirements-local.txt` instead.
 
 ## Controls
 
@@ -50,10 +64,11 @@ a room in one, join with the 5-letter code in the others, and start.
 ## Repository layout
 
 ```
-backend/  authoritative Python (FastAPI + python-socketio) game server
+backend/  authoritative Python (FastAPI + python-socketio) game server, in-memory state
 frontend/ React + Redux Toolkit client; src/shared holds types, contracts, settings, map
 docs/     specs (rules), references/ (visual boards, sprite sheet, key art), PROJECT_PLAN.md, screenshots
-e2e/      multi-client smoke test
+e2e/      Playwright multi-browser scripts
+plan/, memory/, test_reports/, .emergent/   files written by the Emergent agent
 ```
 
 See [`CLAUDE.md`](CLAUDE.md) for architecture rules and
@@ -74,3 +89,7 @@ the step-by-step build prompts.
 | 8. Results reveal | ✅ done |
 | 9. Polish: news, sound, code-drawn sprites + tiles | ✅ done |
 | 10. Acceptance pass | see `e2e/acceptance.cjs` output |
+
+Added beyond the original spec (PR #1): bots that fill empty seats, Document
+Leak sabotage, camera follow, meeting replay, end-of-game badges, ghost chat,
+invite link + QR code, kick, rejoin and play again.

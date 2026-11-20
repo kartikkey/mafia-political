@@ -1,0 +1,11 @@
+# Minimal packages to run and test the game server locally.
+# requirements.txt is Emergent's deploy environment and includes packages from
+# a private host (litellm, emergentintegrations) that the game code doesn't use.
+fastapi==0.110.1
+python-socketio==5.18.1
+uvicorn==0.25.0
+python-dotenv
+aiohttp
+pytest
+requests
+websocket-client

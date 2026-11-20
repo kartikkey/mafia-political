@@ -2,8 +2,19 @@
   "name": "netagiri",
   "private": true,
   "version": "0.2.0",
-  "description": "NETAGIRI: Parliament Under Siege — e2e test runner (app lives in backend/ and frontend/)",
+  "description": "NETAGIRI: Parliament Under Siege. The app lives in backend/ (Python) and frontend/ (React); this file holds dev scripts and the Playwright e2e runner.",
+  "scripts": {
+    "setup": "npm install && npm install --prefix frontend && pip install -r backend/requirements-local.txt",
+    "dev": "concurrently -k -n backend,frontend -c yellow,cyan \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "cd backend && python -m uvicorn server:app --reload --port 8001",
+    "dev:frontend": "cd frontend && npm run start",
+    "typecheck": "npm run typecheck --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "test:backend": "cd backend && REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL:-http://localhost:8001} python -m pytest tests -q",
+    "test:e2e": "node e2e/acceptance.cjs"
+  },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "playwright": "1.57"
   }
 }

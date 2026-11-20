@@ -14,21 +14,52 @@ Indian Parliament. 2D top-down, 16-bit pixel-art style. 8-hour hackathon MVP.
 
 Do not invent factions, mechanics or screens outside the spec without asking.
 Out of scope: journalists/lobbyists, bribery, private messaging, voice chat,
-multiple maps, bots, progression.
+multiple maps, progression.
+
+Added beyond the spec and merged in PR #1: bots that fill empty seats,
+Document Leak sabotage, camera follow, meeting replay, end-of-game badges,
+ghost chat for eliminated players, invite link + QR code, kick, rejoin and play
+again. `plan/plan.md` and `memory/PRD.md` describe them.
 
 ## Stack
 
-npm workspaces monorepo:
+Two apps plus a root folder for scripts and e2e tests. This is not an npm
+workspace; each app has its own dependencies.
 
 ```
-backend/  Python FastAPI + python-socketio (uvicorn server:app, :8001, path /api/socket.io). AUTHORITATIVE game state (backend/game/*).
-frontend/ React 18 + TS + Redux Toolkit + React Router v6 + Vite + SCSS (:3000, build → frontend/build)
-frontend/src/shared/  client copy of types, socket contracts, constants, map (alias @netagiri/shared) — keep in sync with backend/game/shared.py
-e2e/      Playwright multi-client smoke test
+backend/              Python 3 · FastAPI + python-socketio, served by uvicorn on :8001.
+                      Socket.IO path /api/socket.io. AUTHORITATIVE, in-memory game state.
+  server.py           app + socket event handlers
+  game/shared.py      settings, map, rules (Python twin of frontend/src/shared)
+  game/match.py       per-room match state       game/rooms.py   RoomManager (by_socket)
+  game/actions.py     validated player actions   game/flow.py    phases, timers, finish_if_won
+  game/bots.py        bot players                game/puzzles.py mini-game puzzles + answers
+  tests/              pytest suites; they connect to a RUNNING server over Socket.IO
+frontend/             React 18 + TS + Redux Toolkit + React Router v6 + Vite + SCSS, port 3000
+  src/shared/         types, socket contracts, settings, map, rules (import as @netagiri/shared)
+e2e/                  Playwright multi-browser scripts (acceptance.cjs = Spec §13 pass)
+plan/, memory/, test_reports/, .emergent/, deployer-agent-docs/   Emergent agent files
 ```
 
-Commands: `npm run dev` (server :8001, socket path `/api/socket.io` + client :5173; Emergent preview uses `npm run preview:emergent` → client :3000), `npm test` (vitest),
-`npm run typecheck`, `npm run build`, `node e2e/smoke.cjs` (needs `npm run dev` running).
+**The game rules exist twice**: `backend/game/shared.py` and
+`frontend/src/shared/`. Change both together; the server's copy is the one
+that counts.
+
+### Commands (from the repo root)
+
+| Command | What it does |
+|---|---|
+| `npm run setup` | Install root, frontend and local Python packages (`backend/requirements-local.txt`) |
+| `npm run dev` | Backend (:8001, auto-reload) + frontend (:3000) together |
+| `npm run typecheck` / `npm run build` | Frontend `tsc` / production build → `frontend/build` |
+| `npm run test:backend` | pytest suites against the running server (start `npm run dev` first; ~4 min) |
+| `npm run test:e2e` | `e2e/acceptance.cjs` with 6 browsers against :3000 (~4 min) |
+
+Environment: `backend/.env` needs `CORS_ORIGINS` (the server won't start
+without it; `*` for local). `frontend/.env` needs `VITE_PROXY_TARGET=http://localhost:8001`
+so the dev server forwards `/api` to the backend. Copy the `.env.example` files.
+`backend/requirements.txt` is Emergent's deploy environment and includes
+packages from a private host; use `requirements-local.txt` locally.
 
 ## Golden rules
 
@@ -36,7 +67,7 @@ Commands: `npm run dev` (server :8001, socket path `/api/socket.io` + client :51
 1. The server owns roles, alive status, positions-for-actions, cooldown
    timestamps, task completion, votes, timers and victory. Clients **request**;
    the server validates and broadcasts.
-2. Resolve the acting player from `socket.id` via `rooms.bySocket()` — never
+2. Resolve the acting player from the socket id via `rooms.by_socket(sid)` — never
    trust an id, faction, cooldown or "success" flag sent by the client.
 3. Every action handler checks, in order: player exists → alive → `match.state`
    allows it → range (`withinRange`) → faction → cooldown → target state. On
@@ -44,27 +75,30 @@ Commands: `npm run dev` (server :8001, socket path `/api/socket.io` + client :51
    "Meeting in progress"). A rejected action never consumes a cooldown.
 4. Never broadcast the role map. `ROLE_ASSIGNED` goes to one socket;
    `PublicPlayer.revealedFaction` is set only for dead players or at `GAME_OVER`.
-5. Call `match.checkVictory()` after every task completion, elimination, vote
+5. Call `finish_if_won()` (`game/flow.py`) after every task completion, elimination, vote
    result and disconnect (Spec §9.3).
-6. Gameplay numbers live in `shared/src/constants/settings.ts` — no magic
+6. Gameplay numbers live in `backend/game/shared.py` and
+   `frontend/src/shared/constants/settings.ts`, with the same values — no magic
    numbers in handlers or components.
-7. Pure rules (victory, voting, role distribution, geometry, map) live in
-   `shared/src/rules|map` with unit tests. Add a test when you add a rule.
+7. Pure rules (victory, voting, role distribution, badges, geometry, map) live
+   in `backend/game/shared.py` and `frontend/src/shared/rules|map`. Add a pytest
+   in `backend/tests/` when you add or change a rule.
 
 ### Client — mecord folder structure (adapted for a socket game)
 
 ```
-client/src/
+frontend/src/
 ├── api/          gameSocket.ts (the ONE socket instance + emitWithAck)
 │                 serverEvents.ts (the ONLY place socket listeners are bound → dispatch)
 ├── assets/       scss/_tokens.scss (palette + fonts), images/, fonts/
-├── common/       components/ (PixelButton, PixelPanel, Badge, Avatar, Modal), hooks/, types/
-├── components/   global layout-level widgets (NewsTicker, PhaseTimer)
+├── common/       components/ (PixelButton, PixelPanel, Badge, Avatar, Modal, MuteToggle), hooks/, types/
+├── components/   global layout-level widgets (NewsTicker, PhaseTimer, ChatBox)
 ├── config/       env.ts, constants.ts
 ├── constants/    routes.ts (PATHS + pathForState)
 ├── helpers/      avatars.ts, storage.ts
 ├── layout/       GameLayout (news ticker shell)
 ├── pages/        Join · Lobby · Game · Meeting · Results
+├── shared/       @netagiri/shared (see Stack)
 ├── routes/       <Module>/<Module>Routes.tsx, allRoutes.tsx, RoomProtected.tsx
 ├── slices/       join · lobby · game · meeting · results  (reducer.ts + thunk.ts)
 └── store.ts
@@ -112,7 +146,7 @@ client/src/
 | Emergency session / meeting | Lok Sabha meeting: transition → discussion (40s) → voting (20s) → results (4s). |
 | Skip Vote | Explicit abstain. Skip plurality or any tie → nobody ejected. |
 | Power Cut | Sabotage: 15s outage, repairable at Restore Power panel. |
-| News ticker | Breaking-news strip (copy in `shared/src/constants/news.ts`). |
+| News ticker | Breaking-news strip (the server sends a key; the text is in `frontend/src/shared/constants/news.ts`). |
 
 ## State machine (Spec §9.1)
 
