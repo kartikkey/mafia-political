@@ -204,6 +204,8 @@ def rejoin(sid, p):
     current = rooms.by_socket(sid)
     if current and current[1] is not player:
         leave(sid)
+    if player.socket_id != sid and not player.away:
+        io.emit("KICKED", {"reason": "Your seat was opened in another tab"}, player.socket_id)
     rooms.rebind(match, player, sid)
     sync_rejoined(match, player)
     return ok({"roomCode": match.room_code, "playerId": player.id, "name": player.name, "avatar": player.avatar})
@@ -328,7 +330,7 @@ def leave_room(sid, _p):
 async def disconnect(sid, *args):
     try:
         ref = rooms.by_socket(sid)
-        if ref and ref[0].in_match and not ref[1].is_bot:
+        if ref and (ref[0].in_match or ref[0].state == "GAME_OVER") and not ref[1].is_bot:
             start_grace(*ref)
         else:
             leave(sid)

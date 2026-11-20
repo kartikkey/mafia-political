@@ -48,6 +48,7 @@ Out of scope: Media Center, journalists/lobbyists, bribery, voice chat, multiple
 - Tested: iteration_6 (100%).
 
 ## Backlog
+- (2026-06) DONE: invite QR toggle (qrcode.react); host kicks humans in lobby (KICK_PLAYER → KICKED; they may rejoin); Play again for every player on Results + invite link; rejoin after drop (30s grace, per-tab sessionStorage token, REJOIN event, away players stand still & can be eliminated, 'reconnecting' tags; also on Results; duplicate tab takeover sends KICKED to old tab). Tested iteration_7 (100%).
 - Phase 2: QR code of invite link; host kick human players. Phase 3: private/public rooms; "play again with same group" link.
 - P1: deploy verification on Emergent hosting (Node server).
 - P2: rejoin after disconnect, voice chat.

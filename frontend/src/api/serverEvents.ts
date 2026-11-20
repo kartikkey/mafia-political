@@ -44,7 +44,7 @@ export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getStat
   socket.on('disconnect', () => {
     const { join, game } = getState()
     const state = game.match?.state
-    if (join.roomCode && state && state !== 'WAITING' && state !== 'GAME_OVER') {
+    if (join.roomCode && state && state !== 'WAITING') {
       dispatch(connectionDropped())
       return
     }
