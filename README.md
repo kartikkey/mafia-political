@@ -71,7 +71,8 @@ e2e/      Playwright multi-browser scripts
 plan/, memory/, test_reports/, .emergent/   files written by the Emergent agent
 ```
 
-See [`CLAUDE.md`](CLAUDE.md) for architecture rules and
+See [`docs/TECHNICAL_DOCUMENTATION.md`](docs/TECHNICAL_DOCUMENTATION.md) for how the app is built,
+[`CLAUDE.md`](CLAUDE.md) for architecture rules and
 [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) for the module breakdown and
 the step-by-step build prompts.
 
