@@ -13,7 +13,7 @@ class IO:
 
     def emit(self, event: str, data, to):
         sids = [to] if isinstance(to, str) else list(to)
-        sids = [s for s in sids if s and not s.startswith("bot:")]
+        sids = [s for s in sids if s and not s.startswith(("bot:", "away:"))]
         if not sids:
             return
         if self._queue is None:

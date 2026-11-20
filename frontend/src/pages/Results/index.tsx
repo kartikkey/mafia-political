@@ -1,5 +1,5 @@
 /** Final reveal (Game Design §9, Boards 1 & 2 → End Result). */
-import { Crown, Skull } from 'lucide-react'
+import { Crown, RotateCcw, Skull } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from 'common/hooks/redux'
 import { useMatchNavigation } from 'common/hooks/useMatchNavigation'
 import { useCurrentPlayer } from 'common/hooks/useCurrentPlayer'
@@ -9,6 +9,8 @@ import { returnToLobby } from 'slices/results/thunk'
 import { leaveRoom } from 'slices/join/thunk'
 import RevealTable from './components/RevealTable'
 import BadgeShelf from './components/BadgeShelf'
+import InviteLink from 'pages/Lobby/components/InviteLink'
+import 'pages/Lobby/Lobby.scss'
 import './Results.scss'
 
 export default function Results() {
@@ -42,13 +44,19 @@ export default function Results() {
         {gameOver && <RevealTable stats={stats} players={players} />}
 
         <div className="results__actions">
-          {me?.isHost ? (
-            <PixelButton size="lg" disabled={submitLoading} onClick={() => dispatch(returnToLobby())} data-testid="back-to-lobby-btn">Back to Lobby</PixelButton>
-          ) : (
-            <p className="muted" data-testid="waiting-for-host">Waiting for host…</p>
+          {me && (
+            <PixelButton size="lg" disabled={submitLoading} onClick={() => dispatch(returnToLobby())} data-testid="play-again-btn">
+              <RotateCcw size={16} aria-hidden /> Play again
+            </PixelButton>
           )}
           <PixelButton variant="ghost" onClick={() => dispatch(leaveRoom())} data-testid="results-leave-btn">Leave</PixelButton>
         </div>
+        {match && (
+          <section className="results__invite" data-testid="results-invite">
+            <p className="muted">Play again brings everyone back to the same lobby. Invite more MPs with this link:</p>
+            <InviteLink code={match.roomCode} />
+          </section>
+        )}
         {error && <p className="error-text" role="alert">{error}</p>}
       </div>
     </GameLayout>

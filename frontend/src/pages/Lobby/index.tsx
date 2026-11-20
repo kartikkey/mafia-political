@@ -3,7 +3,7 @@ import { useMatchNavigation } from 'common/hooks/useMatchNavigation'
 import PixelButton from 'common/components/PixelButton'
 import MuteToggle from 'common/components/MuteToggle'
 import PixelPanel from 'common/components/PixelPanel'
-import { addBots, removeBot, removeBots, startGame } from 'slices/lobby/thunk'
+import { addBots, kickPlayer, removeBot, removeBots, startGame } from 'slices/lobby/thunk'
 import InviteLink from './components/InviteLink'
 import { leaveRoom } from 'slices/join/thunk'
 import RoomCodeCard from './components/RoomCodeCard'
@@ -28,7 +28,7 @@ export default function Lobby() {
       <h1>NETAGIRI</h1>
       <div className="lobby__grid">
         <PixelPanel title={`Members of Parliament (${players.length}/${lobby?.maxPlayers ?? 10})`}>
-          <PlayerRoster players={players} meId={playerId} maxPlayers={lobby?.maxPlayers ?? 10} onRemoveBot={isHost ? (id) => dispatch(removeBot(id)) : undefined} />
+          <PlayerRoster players={players} meId={playerId} maxPlayers={lobby?.maxPlayers ?? 10} onRemoveBot={isHost ? (id) => dispatch(removeBot(id)) : undefined} onKick={isHost ? (id) => dispatch(kickPlayer(id)) : undefined} />
         </PixelPanel>
 
         <PixelPanel title="Session">

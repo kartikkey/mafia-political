@@ -36,6 +36,8 @@ export interface PublicPlayer {
   revealedFaction?: Faction
   /** Computer-controlled filler player. */
   isBot?: boolean
+  /** Dropped mid-match; seat held for the rejoin grace period. */
+  reconnecting?: boolean
 }
 
 export type TaskType = 'FILE_SORT' | 'RESTORE_POWER' | 'APPROVE_BILL' | 'HOLD'

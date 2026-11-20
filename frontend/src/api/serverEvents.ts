@@ -4,7 +4,9 @@
  */
 import type { Dispatch } from '@reduxjs/toolkit'
 import type { GameSocket } from './gameSocket'
-import { connectionLost, setConnected } from 'slices/join/reducer'
+import { connectionDropped, connectionLost, setConnected } from 'slices/join/reducer'
+import { rejoinMatch } from 'slices/join/thunk'
+import { clearSession, loadSession } from 'helpers/session'
 import { lobbyUpdated, roomClosed } from 'slices/lobby/reducer'
 import {
   cooldownUpdated,
@@ -23,18 +25,36 @@ import { playSound } from 'helpers/sound'
 import { syncClock } from 'slices/game/thunk'
 import { CLOCK_RESYNC_MS } from 'config/constants'
 
-export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getMeId: () => string | null) {
+export function bindServerEvents(socket: GameSocket, dispatch: Dispatch, getState: () => { join: { roomCode: string | null; reconnecting: boolean }; game: { match: { state: string } | null } }) {
+  const getMeId = () => (getState().join as { playerId?: string | null }).playerId ?? null
+  const run = (a: unknown) => (dispatch as (a: unknown) => any)(a)
   // Thunk dispatch through the plain Dispatch type (store is configured with thunk middleware).
-  const resync = () => void (dispatch as (a: unknown) => unknown)(syncClock())
+  const resync = () => void run(syncClock())
   socket.on('connect', () => {
     dispatch(setConnected(true))
     resync()
+    if (!loadSession()) return
+    const wasReconnecting = getState().join.reconnecting
+    run(rejoinMatch()).then((r: { meta: { requestStatus: string } }) => {
+      if (r.meta.requestStatus === 'rejected' && wasReconnecting) dispatch(connectionLost('Could not rejoin — your seat was given up after 30 seconds.'))
+    })
   })
   // Periodic resync corrects drift (long sessions, laptop sleep).
   setInterval(() => socket.connected && resync(), CLOCK_RESYNC_MS)
   socket.on('disconnect', () => {
+    const { join, game } = getState()
+    const state = game.match?.state
+    if (join.roomCode && state && state !== 'WAITING' && state !== 'GAME_OVER') {
+      dispatch(connectionDropped())
+      return
+    }
+    clearSession()
     dispatch(setConnected(false))
     dispatch(connectionLost())
+  })
+  socket.on('KICKED', ({ reason }) => {
+    clearSession()
+    dispatch(connectionLost(reason))
   })
 
   socket.on('LOBBY_UPDATED', (lobby) => dispatch(lobbyUpdated(lobby)))

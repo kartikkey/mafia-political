@@ -13,7 +13,7 @@ export default function PlayersAlive({ players }: { players: PublicPlayer[] }) {
           <li key={p.id} className={!p.alive || !p.connected ? 'is-out' : ''}>
             <Avatar avatar={p.avatar} size={22} dead={!p.alive} />
             <span>{p.name}</span>
-            {!p.connected ? <small>left</small> : !p.alive && <small>out</small>}
+            {!p.connected ? <small>left</small> : !p.alive ? <small>out</small> : p.reconnecting && <small data-testid={`hud-reconnecting-${p.id}`}>reconnecting</small>}
           </li>
         ))}
       </ul>

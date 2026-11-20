@@ -17,7 +17,7 @@ export const store = configureStore({
   },
 })
 
-bindServerEvents(gameSocket, store.dispatch, () => store.getState().join.playerId)
+bindServerEvents(gameSocket, store.dispatch, store.getState)
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch

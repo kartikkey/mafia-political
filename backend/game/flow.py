@@ -33,13 +33,18 @@ def finish_if_won(io: IO, match) -> bool:
     return True
 
 
-def announce_meeting(io: IO, match):
+def meeting_payload(match) -> dict:
     m = match.meeting
     payload = {"reason": m["reason"], "callerId": m["callerId"], "phaseEndsAt": match.phase_ends_at or S.now_ms()}
     for k in ("bodyId", "clue", "replay"):
         if m.get(k) is not None:
             payload[k] = m[k]
-    io.emit("MEETING_STARTED", payload, IO.room(match))
+    return payload
+
+
+def announce_meeting(io: IO, match):
+    m = match.meeting
+    io.emit("MEETING_STARTED", meeting_payload(match), IO.room(match))
     news(io, match, "BODY_REPORTED" if m["reason"] == "BODY" else "MEETING_STARTED")
     broadcast_match(io, match)
 

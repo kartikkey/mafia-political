@@ -1,6 +1,7 @@
 /** Session identity: who am I and which room am I in. */
 import { createAction, createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import { createRoom, joinRoom, leaveRoom } from './thunk'
+import { createRoom, joinRoom, leaveRoom, rejoinMatch } from './thunk'
+import { loadSession } from 'helpers/session'
 
 interface JoinState {
   playerId: string | null
@@ -8,6 +9,10 @@ interface JoinState {
   name: string
   avatar: number
   connected: boolean
+  /** Socket dropped mid-match; the seat is held while we reconnect. */
+  reconnecting: boolean
+  /** A rejoin attempt is pending (also true on boot when this tab has a saved seat). */
+  rejoining: boolean
   submitLoading: boolean
   error: string | null
 }
@@ -18,16 +23,20 @@ const initialState: JoinState = {
   name: '',
   avatar: 0,
   connected: false,
+  reconnecting: false,
+  rejoining: false,
   submitLoading: false,
   error: null,
 }
 
-/** Socket dropped: rejoin isn't supported for the MVP, so every slice resets (Spec §12). */
-export const connectionLost = createAction('join/connectionLost')
+/** Seat lost (lobby drop, failed rejoin, kicked): every slice resets. Optional reason is shown on the join screen. */
+export const connectionLost = createAction<string | undefined>('join/connectionLost')
+/** Socket dropped mid-match: keep everything and wait for the reconnect. */
+export const connectionDropped = createAction('join/connectionDropped')
 
 const joinSlice = createSlice({
   name: 'join',
-  initialState,
+  initialState: () => ({ ...initialState, rejoining: !!loadSession() }),
   reducers: {
     resetJoin: () => initialState,
     setConnected: (state, action: PayloadAction<boolean>) => {
@@ -56,12 +65,27 @@ const joinSlice = createSlice({
           state.error = action.payload as string
         })
     }
+    builder
+      .addCase(rejoinMatch.pending, (state) => {
+        state.rejoining = true
+      })
+      .addCase(rejoinMatch.fulfilled, (state, action) => {
+        Object.assign(state, action.payload, { reconnecting: false, rejoining: false, error: null })
+      })
+      .addCase(rejoinMatch.rejected, (state) => {
+        state.rejoining = false
+      })
+      .addCase(connectionDropped, (state) => {
+        state.connected = false
+        state.reconnecting = true
+      })
     builder.addCase(leaveRoom.fulfilled, (state) => ({ ...initialState, connected: state.connected, name: state.name, avatar: state.avatar }))
-    builder.addCase(connectionLost, (state) => ({
+    builder.addCase(connectionLost, (state, action) => ({
       ...initialState,
+      connected: state.connected,
       name: state.name,
       avatar: state.avatar,
-      error: state.roomCode ? 'Connection lost — you left the match. Rejoin with a room code.' : null,
+      error: action.payload ?? (state.roomCode ? 'Connection lost — your seat could not be kept. Rejoin with a room code.' : null),
     }))
   },
 })

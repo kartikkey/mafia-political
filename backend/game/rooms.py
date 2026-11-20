@@ -47,7 +47,7 @@ class RoomManager:
         if not match:
             return "Room not found"
         if match.state != "WAITING":
-            return "Match already in progress"
+            return "This match just ended — try again once the group is back in the lobby" if match.state == "GAME_OVER" else "Match already in progress"
         if any(p.name.lower() == name.lower() for p in match.connected_players):
             return "Name already taken in this room"
         if len(match.connected_players) >= S.MAX_PLAYERS:
@@ -69,14 +69,21 @@ class RoomManager:
         self.sockets.pop(sid, None)
         if not ref:
             return None
-        match, player = ref
+        return self.leave_player(*ref)
+
+    def leave_player(self, match: Match, player: Player):
+        self.sockets.pop(player.socket_id, None)
+        if player.away_handle:
+            player.away_handle.cancel()
+        player.away = False
         if match.state == "WAITING":
             match.players.pop(player.id, None)
         else:
             match.mark_disconnected(player.id)
         if player.is_host:
             player.is_host = False
-            nxt = next((p for p in match.connected_players if not p.is_bot), None)
+            nxt = next((p for p in match.connected_players if not p.is_bot and not p.away), None) or \
+                next((p for p in match.connected_players if not p.is_bot), None)
             if nxt:
                 nxt.is_host = True
         closed = all(p.is_bot for p in match.connected_players)
@@ -84,6 +91,22 @@ class RoomManager:
             match.dispose()
             self.rooms.pop(match.room_code, None)
         return match, player.id, closed
+
+    def kick(self, match: Match, pid: str):
+        p = match.players.pop(pid, None)
+        if p:
+            self.sockets.pop(p.socket_id, None)
+        return p
+
+    def rebind(self, match: Match, player: Player, sid: str):
+        self.sockets.pop(player.socket_id, None)
+        if player.away_handle:
+            player.away_handle.cancel()
+        player.away_handle = None
+        player.away = False
+        player.socket_id = sid
+        player.last_move_at = S.now_ms()
+        self.sockets[sid] = (match.room_code, player.id)
 
     def add_bots(self, match: Match) -> int:
         added = 0

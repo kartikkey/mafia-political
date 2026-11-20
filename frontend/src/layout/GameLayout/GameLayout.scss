@@ -18,3 +18,15 @@
   }
 }
 
+
+.game-layout__reconnecting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #c0392b;
+  color: #fff;
+  font-size: 13px;
+  border-bottom: 2px solid #000;
+}

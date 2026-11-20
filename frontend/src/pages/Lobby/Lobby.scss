@@ -61,3 +61,19 @@
   .px-btn { display: inline-flex; align-items: center; gap: 6px; }
   &__box { width: 100%; font-size: 12px; padding: var(--s-2); border: 2px solid #000; background: var(--c-primary); color: var(--c-ink, #fff); }
 }
+
+.invite__qr {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  background: #fff;
+  border: 3px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  align-self: flex-start;
+  animation: invite-pop 160ms ease-out;
+  figcaption { color: #0b1220; font-size: 12px; }
+}
+@keyframes invite-pop { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }

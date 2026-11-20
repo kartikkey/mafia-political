@@ -28,6 +28,7 @@ export default function PlayerVoteCard({ player, isMe, selected, voted, disabled
         {isMe && <small> (you)</small>}
         {!player.alive && <small className="vote-card__status">ELIMINATED</small>}
         {player.alive && !player.connected && <small className="vote-card__status">LEFT</small>}
+        {player.alive && player.connected && player.reconnecting && <small className="vote-card__status" data-testid={`vote-card-reconnecting-${player.id}`}>RECONNECTING</small>}
       </span>
       {voted && <span className="vote-card__voted" data-testid={`vote-card-voted-${player.id}`}><Check size={12} aria-hidden /> VOTED</span>}
     </button>

@@ -1,6 +1,7 @@
 """Authoritative match state for one room. Action methods return a rejection reason (str) or a success value."""
 import asyncio
 import math
+import secrets
 
 from . import shared as S
 from .puzzles import check_answer, generate_puzzle
@@ -45,6 +46,9 @@ class Player:
         self.ejected = False
         self.is_bot = False
         self.death_position = None
+        self.token = secrets.token_urlsafe(16)
+        self.away = False
+        self.away_handle = None
 
 
 class Match:
@@ -102,6 +106,8 @@ class Match:
         }
         if p.is_bot:
             out["isBot"] = True
+        if p.away:
+            out["reconnecting"] = True
         if (self.state == "GAME_OVER" or not p.alive) and p.faction:
             out["revealedFaction"] = p.faction
         return out

@@ -3,6 +3,7 @@ import asyncio
 import logging
 import math
 import os
+import secrets
 from pathlib import Path
 
 import socketio
@@ -12,7 +13,7 @@ from fastapi import FastAPI
 from game import shared as S
 from game.actions import act_chat, act_complete_task, act_eliminate, act_emergency, act_move, act_open_task, act_report, act_sabotage, act_vote
 from game.bots import forget_bots, run_bots
-from game.flow import broadcast_match, end_voting, finish_if_won, interacting, wire_match
+from game.flow import broadcast_match, end_voting, finish_if_won, interacting, meeting_payload, wire_match
 from game.io import IO
 from game.rooms import RoomManager, sanitise_name
 
@@ -97,21 +98,66 @@ async def ticker(match):
 
 def leave(sid: str):
     res = rooms.leave(sid)
-    if not res:
-        return
-    match, player_id, closed = res
+    if res:
+        after_leave(*res)
+
+
+def after_leave(match, player_id: str, closed: bool):
     if closed:
         return
+    p = match.players.get(player_id)
     io.emit("PLAYER_LEFT", {"playerId": player_id}, IO.room(match))
     if match.state == "WAITING":
         return push_lobby(match)
-    if match.state == "PLAYING":
-        interacting(io, match, player_id, sid, None)
+    if match.state == "PLAYING" and p:
+        interacting(io, match, player_id, p.socket_id, None)
     if finish_if_won(io, match):
         return
     broadcast_match(io, match)
     if match.state == "VOTING" and match.all_voted():
         end_voting(io, match)
+
+
+def start_grace(match, player):
+    """Dropped mid-match: the character stays (and can be eliminated) until the grace period ends."""
+    rooms.sockets.pop(player.socket_id, None)
+    player.socket_id = f"away:{player.id}"
+    player.away = True
+    if player.open_task:
+        match.close_task(player.id)
+        interacting(io, match, player.id, player.socket_id, None)
+    player.away_handle = asyncio.get_running_loop().call_later(S.REJOIN_GRACE_MS / 1000, expire_grace, match, player.id)
+    broadcast_match(io, match)
+
+
+def expire_grace(match, player_id: str):
+    p = match.players.get(player_id)
+    if rooms.rooms.get(match.room_code) is not match or not p or not p.away:
+        return
+    try:
+        after_leave(*rooms.leave_player(match, p))
+    except Exception:
+        log.exception("grace expiry failed")
+
+
+def sync_rejoined(match, p):
+    """Bring a rejoined client back to the current phase."""
+    sid = p.socket_id
+    if match.state == "WAITING":
+        return push_lobby(match)
+    broadcast_match(io, match)
+    if p.faction:
+        io.emit("ROLE_ASSIGNED", {"faction": p.faction, "teammateIds": match.teammates_of(p.id)}, sid)
+    if p.faction == "DEEP_STATE":
+        io.emit("COOLDOWN", {"eliminationReadyAt": p.elimination_ready_at, "sabotageReadyAt": match.sabotage_ready_at}, sid)
+    if match.meeting and match.state in ("MEETING_TRANSITION", "DISCUSSION", "VOTING", "VOTE_RESULTS"):
+        io.emit("MEETING_STARTED", meeting_payload(match), sid)
+        for voter in match.votes:
+            io.emit("VOTE_CAST", {"voterId": voter}, sid)
+        if match.state == "VOTE_RESULTS" and match.last_tally:
+            io.emit("VOTE_RESULTS", match.last_tally, sid)
+    if match.state == "GAME_OVER" and match.result:
+        io.emit("GAME_OVER", {"result": match.result, "stats": match.match_stats()}, sid)
 
 
 # ── Lobby ──
@@ -125,7 +171,7 @@ def create_room(sid, p):
     wire_match(io, match)
     match.tick_task = asyncio.get_running_loop().create_task(ticker(match))
     push_lobby(match)
-    return ok({"roomCode": match.room_code, "playerId": player.id})
+    return ok({"roomCode": match.room_code, "playerId": player.id, "rejoinToken": player.token})
 
 
 @on("JOIN_ROOM")
@@ -143,7 +189,44 @@ def join_room(sid, p):
     match, player = res
     io.emit("PLAYER_JOINED", match.public_player(player), IO.room(match))
     push_lobby(match)
-    return ok({"roomCode": match.room_code, "playerId": player.id})
+    return ok({"roomCode": match.room_code, "playerId": player.id, "rejoinToken": player.token})
+
+
+@on("REJOIN")
+def rejoin(sid, p):
+    code, pid, token = p.get("roomCode"), p.get("playerId"), p.get("token")
+    if not all(isinstance(v, str) for v in (code, pid, token)):
+        return fail("Session expired")
+    match = rooms.get(code)
+    player = match.players.get(pid) if match else None
+    if not player or player.is_bot or not player.connected or not secrets.compare_digest(player.token, token):
+        return fail("Session expired")
+    current = rooms.by_socket(sid)
+    if current and current[1] is not player:
+        leave(sid)
+    rooms.rebind(match, player, sid)
+    sync_rejoined(match, player)
+    return ok({"roomCode": match.room_code, "playerId": player.id, "name": player.name, "avatar": player.avatar})
+
+
+@on("KICK_PLAYER")
+def kick_player(sid, p):
+    ref = rooms.by_socket(sid)
+    if not ref or ref[0].state != "WAITING":
+        return fail("Not in a lobby")
+    match, host = ref
+    if not host.is_host:
+        return fail("Only the host can remove players")
+    target = match.players.get(str(p.get("playerId") or ""))
+    if not target or target.is_bot:
+        return fail("No such player")
+    if target.id == host.id:
+        return fail("You cannot remove yourself")
+    rooms.kick(match, target.id)
+    io.emit("KICKED", {"reason": "The host removed you from the lobby"}, target.socket_id)
+    io.emit("PLAYER_LEFT", {"playerId": target.id}, IO.room(match))
+    push_lobby(match)
+    return ok()
 
 
 @on("SET_AVATAR")
@@ -220,10 +303,15 @@ def return_to_lobby(sid, _p):
     match, player = ref
     if match.state != "GAME_OVER":
         return fail("Match still in progress")
-    if not player.is_host:
-        return fail("Only the host can reset the room")
-    for pid in [k for k, v in match.players.items() if not v.connected]:
+    for pid in [k for k, v in match.players.items() if not v.connected or v.away]:
+        if match.players[pid].away_handle:
+            match.players[pid].away_handle.cancel()
+        rooms.sockets.pop(match.players[pid].socket_id, None)
         del match.players[pid]
+    if not match.host_id:
+        nxt = next((x for x in match.players.values() if not x.is_bot), None)
+        if nxt:
+            nxt.is_host = True
     forget_bots(match)
     match.reset_to_lobby()
     push_lobby(match)
@@ -239,7 +327,11 @@ def leave_room(sid, _p):
 @sio.on("disconnect")
 async def disconnect(sid, *args):
     try:
-        leave(sid)
+        ref = rooms.by_socket(sid)
+        if ref and ref[0].in_match and not ref[1].is_bot:
+            start_grace(*ref)
+        else:
+            leave(sid)
     except Exception:
         log.exception("disconnect cleanup failed")
 

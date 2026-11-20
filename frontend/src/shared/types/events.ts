@@ -65,9 +65,20 @@ export interface GameOverPayload {
   stats: PlayerMatchStats[]
 }
 
+export interface JoinedRoom {
+  roomCode: string
+  playerId: string
+  /** Secret used to reclaim this seat after a dropped connection. */
+  rejoinToken: string
+}
+
 export interface ClientToServerEvents {
-  CREATE_ROOM: (p: { name: string; avatar: number }, ack: Ack<{ roomCode: string; playerId: string }>) => void
-  JOIN_ROOM: (p: { roomCode: string; name: string; avatar: number }, ack: Ack<{ roomCode: string; playerId: string }>) => void
+  CREATE_ROOM: (p: { name: string; avatar: number }, ack: Ack<JoinedRoom>) => void
+  JOIN_ROOM: (p: { roomCode: string; name: string; avatar: number }, ack: Ack<JoinedRoom>) => void
+  /** Reclaim a seat after a dropped connection (within the grace period). */
+  REJOIN: (p: { roomCode: string; playerId: string; token: string }, ack: Ack<{ roomCode: string; playerId: string; name: string; avatar: number }>) => void
+  /** Host: remove a human player from the lobby (they may join again). */
+  KICK_PLAYER: (p: { playerId: string }, ack: Ack) => void
   LEAVE_ROOM: () => void
   SET_AVATAR: (p: { avatar: number }, ack: Ack) => void
   START_GAME: (ack: Ack) => void
@@ -103,6 +114,8 @@ export interface ServerToClientEvents {
   PLAYER_JOINED: (player: PublicPlayer) => void
   PLAYER_LEFT: (p: { playerId: string }) => void
   ROOM_CLOSED: (p: { reason: string }) => void
+  /** The host removed you from the lobby. */
+  KICKED: (p: { reason: string }) => void
 
   GAME_STARTED: (view: ClientMatchView) => void
   ROLE_ASSIGNED: (role: RoleAssignment) => void

@@ -9,7 +9,8 @@ import { PATHS } from 'constants/routes'
  */
 export default function RoomProtected({ children }: { children: ReactNode }) {
   const { roomCode } = useParams()
-  const joined = useAppSelector((s) => s.join.roomCode)
+  const { roomCode: joined, rejoining } = useAppSelector((s) => s.join)
+  if (!joined && rejoining) return <div className="page" data-testid="rejoining-screen"><p className="muted">Rejoining your seat…</p></div>
   if (!joined || (roomCode && roomCode.toUpperCase() !== joined)) {
     return <Navigate to={PATHS.join} replace />
   }
