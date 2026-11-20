@@ -21,9 +21,9 @@ multiple maps, bots, progression.
 npm workspaces monorepo:
 
 ```
-shared/   @netagiri/shared — types, socket event contracts, constants, pure rules, map
-server/   Node + Express + Socket.IO (tsx). AUTHORITATIVE game state.
-client/   React 18 + TS + Redux Toolkit + React Router v6 + Vite + SCSS
+backend/  Python FastAPI + python-socketio (uvicorn server:app, :8001, path /api/socket.io). AUTHORITATIVE game state (backend/game/*).
+frontend/ React 18 + TS + Redux Toolkit + React Router v6 + Vite + SCSS (:3000, build → frontend/build)
+frontend/src/shared/  client copy of types, socket contracts, constants, map (alias @netagiri/shared) — keep in sync with backend/game/shared.py
 e2e/      Playwright multi-client smoke test
 ```
 

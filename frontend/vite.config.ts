@@ -13,8 +13,10 @@ export default defineConfig(({ mode }) => {
       alias: [
         ...dirs.map((d) => ({ find: new RegExp(`^${d}/`), replacement: `${src(d)}/` })),
         { find: /^store$/, replacement: src('store.ts') },
+        { find: /^@netagiri\/shared$/, replacement: src('shared/index.ts') },
       ],
     },
+    build: { outDir: 'build' },
     server: {
       port: Number(process.env.PORT || 5173),
       host: true,

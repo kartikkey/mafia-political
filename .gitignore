@@ -6,6 +6,7 @@ dist/
 .DS_Store
 coverage/
 .vite/
-!server/.env
-!client/.env
+!backend/.env
+!frontend/.env
 frontend/node_modules/
+build/

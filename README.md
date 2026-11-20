@@ -50,9 +50,8 @@ a room in one, join with the 5-letter code in the others, and start.
 ## Repository layout
 
 ```
-shared/   types, Socket.IO event contracts, settings, pure rules, Parliament map
-server/   authoritative Socket.IO game server
-client/   React + Redux Toolkit client (mecord folder structure)
+backend/  authoritative Python (FastAPI + python-socketio) game server
+frontend/ React + Redux Toolkit client; src/shared holds types, contracts, settings, map
 docs/     specs (rules), references/ (visual boards, sprite sheet, key art), PROJECT_PLAN.md, screenshots
 e2e/      multi-client smoke test
 ```
