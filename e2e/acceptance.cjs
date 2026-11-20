@@ -402,7 +402,9 @@ async function main() {
     await pages[govs[0]].close()
     await pages[govs[1]].close()
     const remaining = pages.filter((_, i) => i !== govs[0] && i !== govs[1])
-    const ended = await until(async () => (await st(remaining[0])).game.match?.state === 'GAME_OVER', 8000)
+    // Since PR #1 a dropped player keeps their seat for REJOIN_GRACE_MS (30s, backend/game/shared.py)
+    // so they can rejoin; the match ends only after that.
+    const ended = await until(async () => (await st(remaining[0])).game.match?.state === 'GAME_OVER', 40000)
     const go2 = (await st(remaining[0])).results.gameOver
     check('disconnect', !!ended, `two MPs disconnected → match state ${(await st(remaining[0])).game.match?.state}`)
     check('deepWin', go2?.result === 'DEEP_STATE_WINS', `living agents 2 vs MPs 2 → ${go2?.result}`)
