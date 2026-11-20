@@ -21,13 +21,13 @@ multiple maps, bots, progression.
 npm workspaces monorepo:
 
 ```
-shared/   @netagiri/shared — types, socket event contracts, constants, pure rules, map
-server/   Node + Express + Socket.IO (tsx). AUTHORITATIVE game state.
-client/   React 18 + TS + Redux Toolkit + React Router v6 + Vite + SCSS
+backend/  Python FastAPI + python-socketio (uvicorn server:app, :8001, path /api/socket.io). AUTHORITATIVE game state (backend/game/*).
+frontend/ React 18 + TS + Redux Toolkit + React Router v6 + Vite + SCSS (:3000, build → frontend/build)
+frontend/src/shared/  client copy of types, socket contracts, constants, map (alias @netagiri/shared) — keep in sync with backend/game/shared.py
 e2e/      Playwright multi-client smoke test
 ```
 
-Commands: `npm run dev` (server :3001 + client :5173), `npm test` (vitest),
+Commands: `npm run dev` (server :8001, socket path `/api/socket.io` + client :5173; Emergent preview uses `npm run preview:emergent` → client :3000), `npm test` (vitest),
 `npm run typecheck`, `npm run build`, `node e2e/smoke.cjs` (needs `npm run dev` running).
 
 ## Golden rules

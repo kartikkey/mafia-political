@@ -1,0 +1,34 @@
+{
+  "summary": "Tested the 4 new features with six Chromium contexts (node + playwright, new script e2e/t1-features2.cjs), on localhost:3000 and the preview URL, and ran the e2e/t1-minigames.cjs regression. Document Leak, the fake-task interact bubble, the starting elimination cooldown, and zoom cycling all work. No page or console errors. One real gap: the camera clamps to the map edges, so in edge and corner areas of rooms the local player still ends up under the HUD panels at the default 2x zoom. This breaks the 'task panels never hide rooms' goal. Regression t1-minigames passed 19/19.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "Match.eliminate / markDisconnected (server/src/game/Match.ts ~L306, ~L506)", "issue": "openTask is set to null without emitting PLAYER_INTERACTING {taskId:null}. If a victim or a disconnecting player had a station open, their entry stays in the other clients' store.game.interacting. It isn't drawn, because the canvas skips dead and disconnected players, but the store is stale. To fix, call interacting(io, match, id, socketId, null) in the eliminate and disconnect handlers."}
+  ]},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ParliamentCanvas camera clamp", "issue": "The camera clamps to the map bounds (clamp(v, view, size)), so when the player is near a map edge it stops centring and the player slides toward the screen edge, under the HUD overlays. Confirmed by screenshot at 1280x800, zoom 2x: at PM Office tile (37,2) the player is fully under hud-players; at Records Room tile (2,23) the player is under controls-legend. The 'Approve the Budget' station at (4,4) is half under hud-tasks, and the player's name label is clipped when standing there. Computed coverage shows the same at 1920x800 2x and 1920x1080 2x and 1.4x, for the corners TL/TR/BL and fin-budget. At 1.4x on 1280x800, 'Organize Files' (5,18) is also hidden under the task list.", "selector": "[data-testid='parliament-canvas'], [data-testid='hud-tasks'], [data-testid='hud-players'], [data-testid='controls-legend']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Game map: fake/real task bubble", "issues": ["drawWorkBubble is drawn at (x+16, y-30), which covers y-39..y-27, the same band as the player's name label (baseline y-27). The '...' bubble overlaps the worker's own name ('MP4' drawn over the bubble). When two players stand stacked vertically, it also lands on the sprite of the player above. Move the bubble higher (for example y-48) or to the side of the label."]},
+      {"screen": "Leak station", "issues": ["The flashing 'LEAK' tag at y+30 is mostly hidden by a player standing at the station, usually the leaker. This is cosmetic, because the banner, the HUD OFFLINE marker and the prompt all convey the leak."]}
+    ]
+  },
+  "test_report_links": ["/app/e2e/t1-features2.cjs", "/app/e2e/t1-minigames.cjs"],
+  "action_items": [
+    "Camera follow: stop the HUD hiding the player near map edges. Either let the camera over-scroll past the map bounds by the HUD insets (left ~270px task panel, right ~220px players panel, bottom-left legend ~220x180, bottom-right action bar), or clamp against the free area between the panels rather than the full canvas. Re-check tiles (37,2), (2,23), (2,2) and the station at (4,4) at 1280x800 and 1920x800, zoom 2x.",
+    "Optional: emit PLAYER_INTERACTING null when an interacting player is eliminated or disconnects.",
+    "Optional: lift the work bubble above the name label."
+  ],
+  "critical_code_review_comments": [
+    "Cooldown countdowns (eliminationReadyAt, sabotageReadyAt, leakEndsAt) are server epoch ms compared against the client's Date.now(). If the client clock is skewed, the 'Cooldown: Ns' text and the leak banner seconds will be wrong. The server is still authoritative. Consider sending remaining ms or a server-time offset.",
+    "sabotageAction checks range before checking 'Sabotage already active'. That is fine, but a Power Cut attempt during a leak only says 'Sabotage already active' when the agent is at the panel. The client shows 'Sabotage active' anyway.",
+    "Leak handling looks correct: openTask is cleared server-side, the client closes the modal via matchUpdated, TASK_COMPLETED after a leak fails with 'Open the task first', the timer is separate and cleared on meeting, game over and reset."
+  ],
+  "updated_files": ["/app/e2e/t1-features2.cjs (new)"],
+  "success_rate": {"backend": "n/a (covered via raw socket emits in e2e)", "frontend": "92% (24/26 feature checks pass; the camera edge occlusion fails at 2x and 1.4x; 'start-cooldown-server' in 'all' mode fails only because of the harness, since no Deep/Gov pair is adjacent at spawn, and it passes in 'cam' mode). Regression 19/19."},
+  "seed_data_creation": "None. Rooms are in memory and abandoned.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: node e2e/t1-features2.cjs <base> covers leak, bubble, zoom, the computed HUD coverage at 3 viewports and the UI starting cooldown, in about 60s. Run: node e2e/t1-features2.cjs <base> cam to walk a Deep agent next to a Gov MP within 12s, raw-emit an elimination (expect 'Cooldown: 11s'), check that Q works after 12s, then walk a Gov MP to (4,5), (37,2) and (2,23), take screenshots in /app/.screenshots/t2-cam-*.png, and check elementFromPoint. The coverAt() helper replicates the ParliamentCanvas camera maths (map 1280x832); update it if the camera logic changes. Verified: leak lasts about 20.0s, the shared 30s cooldown shows 'Cooldown: 10s' after recovery, an emergency meeting clears the leak, and Gov players get no action-leak button.",
+  "rca of the issue": "Camera occlusion: in ParliamentCanvas.render, tx = clamp(focus.x, viewW, MAP_WIDTH) stops the camera at view/2 from each map edge. Near an edge the player moves off-centre toward the canvas edge, where the absolutely-positioned HUD panels (.hud--tasks top-left, .hud--players top-right, .hud--legend bottom-left, the action bar bottom-right) sit over the canvas. To reproduce: zoom 2x at 1280x800, walk to tile (37,2) in the PM Office, and the player is drawn under hud-players. To fix: allow over-scroll (pad the clamp by the HUD insets in world units) or remove the clamp and fill the area outside the map with the background colour."
+}

@@ -1,0 +1,51 @@
+{
+  "summary": "Tested iteration-7 features end to end against the public URL. Backend: a new pytest file (4 socket scenarios) covers rejoinToken in the acks, REJOIN mid-match (wrong or missing token gives 'Session expired', the correct token restores name/avatar, MATCH_STATE, ROLE_ASSIGNED with the same faction and COOLDOWN, clears 'reconnecting', and movement works again), REJOIN during DISCUSSION (MEETING_STARTED) and during VOTING (MEETING_STARTED plus 5 VOTE_CAST), votes waiting for the away player (no early VOTE_RESULTS; results arrive after the player rejoins and votes), the 30s grace expiry (connected:false, PLAYER_LEFT, REJOIN gives 'Session expired'), a lobby disconnect removing the player immediately, all KICK_PLAYER checks (non-host, self, bot, empty, outsider, valid kick gives KICKED and LOBBY_UPDATED, the kicked player rejoins with the same name, a kick mid-match is refused), JOIN_ROOM during GAME_OVER giving the exact message, and RETURN_TO_LOBBY from a non-host (same room code, host reassigned). All 4 pass. Frontend: a new Playwright script (3 browsers plus 3 socket humans) passed 22/22 on two runs: QR toggle (svg shown and hidden), kick buttons only for the host and only on other humans, kicked browser lands on the join screen with the error text and can rejoin, page reload mid-match shows rejoining-screen and then the game screen with the same role, going offline for about 3s shows reconnecting-banner and hud-reconnecting-<id> on the host and both clear after rejoin, Results shows play-again-btn for everyone plus results-invite/copy-invite-link-btn, and a non-host clicking Play again moves everyone to /lobby/<same code>. Regression: e2e/bots.cjs played to GAME_OVER (GOVERNMENT_WINS, 4 badges); test_remove_bot.py and test_netagiri_socket.py pass after I updated the outdated host-only RETURN_TO_LOBBY check.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "socket REJOIN", "issue": "REJOIN takes over a seat even while the original socket is still connected. In Chrome, 'Duplicate tab' copies sessionStorage, so the duplicated tab silently takes the seat. The original tab gets no event: its actions return 'Not in a room' and it stops receiving broadcasts, so it looks frozen. Suggest sending KICKED (or a SESSION_TAKEN event) to the old socket id in rooms.rebind / the rejoin handler before rebinding."},
+      {"endpoint": "socket disconnect during GAME_OVER", "issue": "GAME_OVER is not in IN_MATCH, so a player who reloads or drops on the Results screen is marked as left straight away (no grace). Their REJOIN gives 'Session expired' and they miss 'Play again'. This follows the brief ('mid-match') but may surprise players who reload Results. Seen in the code only; my socket test of this case was not conclusive."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Role reveal (ROLE_ASSIGNMENT)", "issues": ["If the connection drops during the 4s role reveal, reconnecting-banner is in the DOM and counts as 'visible' but is hidden behind the full-screen role reveal overlay."]},
+      {"screen": "Results header ticker", "issues": ["The 'BREAKING' label is orange text on an orange box, so contrast is low (this was already there before this iteration)."]},
+      {"screen": "Game map", "issues": ["Name labels of players standing at nearby spawn points overlap, e.g. 'TESTHo TESTBob' (already there before this iteration)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_rejoin_kick.py",
+    "/app/backend/tests/test_netagiri_socket.py",
+    "/app/backend/tests/test_remove_bot.py",
+    "/app/e2e/t1-iter7.cjs",
+    "/app/test_reports/pytest/iter7_rejoin.xml",
+    "/app/test_reports/pytest/iter7_regression.xml"
+  ],
+  "action_items": [
+    "Optional: notify a displaced socket when its seat is taken via REJOIN (duplicate tab case)",
+    "Optional: decide whether to give a grace period on the Results screen (GAME_OVER) so reloading there keeps the seat for Play again",
+    "Optional: render reconnecting-banner above the role reveal overlay (z-index)",
+    "e2e/acceptance.cjs and e2e/t1-minigames.cjs still use back-to-lobby-btn; update them to play-again-btn"
+  ],
+  "critical_code_review_comments": [
+    "server.py: the REJOIN handler checks is_bot, connected and compare_digest; the token is per-player token_urlsafe(16). Good.",
+    "server.py return_to_lobby: away/disconnected players are removed and their timers cancelled; host is reassigned if missing. Good.",
+    "rooms.rebind does not tell the previous socket_id that it lost the seat (see minor issue).",
+    "kick_player returns 'Not in a lobby' for a non-host socket that is not in any room, and 'Only the host…' only for room members. This is correct.",
+    "Grace timer uses loop.call_later. If the room is disposed while the timer is pending, expire_grace checks rooms.rooms.get(code) is match. Good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rejoin_kick.py (new)",
+    "/app/backend/tests/test_netagiri_socket.py (RETURN_TO_LOBBY check updated: non-host is now allowed)",
+    "/app/e2e/t1-iter7.cjs (new)"
+  ],
+  "success_rate": {"backend": "100% (4/4 new + 6/6 regression)", "frontend": "100% (22/22, two runs)"},
+  "flaky_tests": ["t1-iter7.cjs: the first run timed out on the initial invite join (page.waitForURL waiting for 'load'). I replaced it with URL polling and 2 later runs passed. Likely a test-harness issue, not an app issue."],
+  "seed_data_creation": "None. All rooms are in-memory and were created with TEST* names; clients sent LEAVE_ROOM and disconnected.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && /root/.venv/bin/python -m pytest tests/test_rejoin_kick.py -p no:xdist (about 110s; it includes a 30s grace wait and a 40s discussion). UI: node e2e/t1-iter7.cjs <REACT_APP_BACKEND_URL> (uses /app/frontend/node_modules/socket.io-client and chromium headless shell). Editing .py files under /app/backend (including tests/) triggers uvicorn reload and wipes rooms, which broke one bots.cjs run. Do not edit while other tests are running. The store has game.role.faction, join.playerId, join.roomCode and lobby.lobby.players."
+}

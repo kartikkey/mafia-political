@@ -1,5 +1,6 @@
 const { chromium } = require('playwright')
 const out = process.argv[2] ?? 'docs/screenshots'
+const BASE = process.argv[3] ?? 'http://localhost:3000'
 ;(async () => {
   const browser = await chromium.launch()
   const pages = []
@@ -8,14 +9,14 @@ const out = process.argv[2] ?? 'docs/screenshots'
     pages.push(await ctx.newPage())
   }
   const [host, ...rest] = pages
-  await host.goto('http://localhost:5173/')
+  await host.goto(BASE)
   await host.fill('input[placeholder="Hon. Member"]', 'Speaker')
   await host.click('text=Create Room')
   await host.waitForURL(/\/lobby\//)
   const code = host.url().split('/').pop()
   console.log('room', code)
   for (const [i, p] of rest.entries()) {
-    await p.goto('http://localhost:5173/')
+    await p.goto(BASE)
     await p.fill('input[placeholder="Hon. Member"]', `MP${i + 1}`)
     await p.click(`.join__avatar >> nth=${i + 1}`)
     await p.fill('input[aria-label="Room code"]', code)

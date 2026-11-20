@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="4" time="109.950" timestamp="2026-11-20T01:58:49.421145+00:00" hostname="agent-env-6c03c477-20cf-4e5b-8d97-cd07abe122cf"><testcase classname="tests.test_rejoin_kick" name="test_rejoin_mid_match_and_meeting" time="52.751"><failure message="AssertionError: voting ended early without away player: VOTE_RESULTS&#10;assert 'VOTE_RESULTS' == 'VOTING'&#10;  &#10;  - VOTING&#10;  + VOTE_RESULTS">tests/test_rejoin_kick.py:125: in test_rejoin_mid_match_and_meeting
+    run(go())
+tests/test_netagiri_socket.py:92: in run
+    return asyncio.run(coro)
+           ^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_rejoin_kick.py:111: in go
+    assert obs.state["state"] == "VOTING", f"voting ended early without away player: {obs.state['state']}"
+E   AssertionError: voting ended early without away player: VOTE_RESULTS
+E   assert 'VOTE_RESULTS' == 'VOTING'
+E     
+E     - VOTING
+E     + VOTE_RESULTS</failure></testcase><testcase classname="tests.test_rejoin_kick" name="test_grace_expiry" time="38.542" /><testcase classname="tests.test_rejoin_kick" name="test_lobby_disconnect_and_kick" time="6.434"><failure message="AssertionError: {'ok': False, 'reason': 'Need at least 6 players'}&#10;assert False">tests/test_rejoin_kick.py:203: in test_lobby_disconnect_and_kick
+    run(go())
+tests/test_netagiri_socket.py:92: in run
+    return asyncio.run(coro)
+           ^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_rejoin_kick.py:197: in go
+    assert r["ok"], r
+E   AssertionError: {'ok': False, 'reason': 'Need at least 6 players'}
+E   assert False</failure></testcase><testcase classname="tests.test_rejoin_kick" name="test_return_to_lobby_non_host" time="11.896" /></testsuite></testsuites>

@@ -1,0 +1,24 @@
+{
+  "summary": "Tested invite link + per-bot removal features. Backend: new socket test file test_remove_bot.py (2 tests, all pass) covering REMOVE_BOT non-host, human id (guest and host self), unknown/missing/non-string id, valid removal broadcast to other lobby member, double-remove, REMOVE_BOTS after per-bot removal, REMOVE_BOT during match ('Not in a lobby'), REMOVE_BOT with no room, and start-game with bots. Frontend (Playwright, 2-3 contexts): copy-invite-link-btn shows 'LINK COPIED' then reverts after ~1.8s; clipboard == <origin>/?room=CODE; guest opening link sees join-invite-note 'You're invited to room CODE', code prefilled, joins lobby; guest sees invite btn but 0 remove-bot-* buttons; host remove-bot-<id> removes that bot for host and guest (4->3), add-bots text updates, remove-bots-btn removes remaining; /?room=ZZZZQ -> join-error 'Room not found'; lowercase code param normalised, short code (<5) shows no note. Mobile 390px: no horizontal overflow (scrollWidth 390), x buttons 32x32 tappable and work, clipboard-failure fallback shows invite-link-box with full link focused+selected; start game with bots from UI goes to /game/CODE and role reveal shows. No bugs found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Lobby mobile 390px", "issues": ["Session panel (invite link / start / bot buttons) sits below the 10-row roster including 4+ empty 'Waiting for MP…' rows, so host must scroll far to reach invite/start controls; consider placing Session first on mobile or collapsing empty slots (optional)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_remove_bot.py", "/app/test_reports/pytest/pytest_remove_bot.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Share button (navigator.share) not exercised — headless Chromium has no Web Share API; verify manually on a phone.",
+    "Join page: if the user is already in a room (join.roomCode set), opening an invite link to a different room immediately redirects to the old lobby via the useEffect; edge case, acceptable but worth noting.",
+    "InviteLink copied-state setTimeout not cleared on unmount (harmless React no-op)."
+  ],
+  "updated_files": ["/app/backend/tests/test_remove_bot.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None; only ephemeral in-memory TEST rooms created and left/disconnected.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run: cd /app/backend && /root/.venv/bin/python -m pytest tests/test_remove_bot.py -p no:xdist. test_remove_bot.py imports helpers (C, wait_for, run) from test_netagiri_socket.py. Note public player objects only include isBot when true. Creating .py files under /app/backend may trigger uvicorn --reload (wipes rooms)."
+}

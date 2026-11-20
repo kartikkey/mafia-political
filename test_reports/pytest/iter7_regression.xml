@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="6" time="133.129" timestamp="2026-11-20T02:06:06.754938+00:00" hostname="agent-env-6c03c477-20cf-4e5b-8d97-cd07abe122cf"><testcase classname="tests.test_remove_bot" name="test_remove_bot_validation_and_flow" time="5.643" /><testcase classname="tests.test_remove_bot" name="test_remove_bot_not_in_room" time="0.671" /><testcase classname="tests.test_netagiri_socket" name="test_health" time="0.185" /><testcase classname="tests.test_netagiri_socket" name="test_lobby_flow" time="7.572" /><testcase classname="tests.test_netagiri_socket" name="test_ack_ordering_create_room" time="0.488" /><testcase classname="tests.test_netagiri_socket" name="test_full_match_flow" time="118.258"><failure message="IndexError: list index out of range">tests/test_netagiri_socket.py:454: in test_full_match_flow
+    run(go())
+tests/test_netagiri_socket.py:92: in run
+    return asyncio.run(coro)
+           ^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_netagiri_socket.py:448: in go
+    check("back to WAITING", cl[3].state["state"] == "WAITING" and len(cl[3].got("LOBBY_UPDATED", t0)[-1]["players"]) == 6)
+                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range</failure></testcase></testsuite></testsuites>

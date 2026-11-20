@@ -6,3 +6,13 @@ dist/
 .DS_Store
 coverage/
 .vite/
+!backend/.env
+!frontend/.env
+frontend/node_modules/
+build/
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials

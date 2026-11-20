@@ -1,0 +1,31 @@
+{
+  "summary": "Six-browser Playwright run (node + playwright, chromium) against the preview URL (1 run) and localhost:3000 (3 runs). It covered what E1's acceptance.cjs did not: File Sort drag-and-drop and the wrong-answer reset, the Approve the Bill UI, the Restore Power task UI, the Power Cut flow and repair at the panel, the eliminate button's disabled reasons, the victim freeze, Space to report, living-only chat with the dead notice, the voting UI (VOTED markers, self and dead cards disabled), the Results screen, Leave from results, Back to Lobby and a second match start, and the mute toggle with reload. Every game flow passed. The only real gap is the mute toggle, which is missing from the Landing and Lobby pages. No page errors or console errors in any run.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "MuteToggle placement", "issue": "The mute toggle is only rendered inside GameLayout (Game, Meeting, Results). Landing and Lobby have no toggle. Reloading during a match sends the player back to Landing, which the spec allows. So after a reload the saved setting (localStorage netagiri.muted='1' was confirmed) cannot be seen or changed until the next match. Persistence works in code, but 'persists on reload' could not be seen in the UI.", "selector": "[data-testid='mute-toggle']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Game map at 1280x800 and 768x1024", "issues": ["The left HUD panel (role, task progress, 12-item task list) covers the whole Finance Ministry room, including the 'Approve the Budget' station at tile (4,4) and 'Verify Allocations' at (8,7). Players in that room are hidden behind the panel. Consider a collapsible task list, a semi-transparent panel, or a camera that follows the player.", "The players-alive panel on the right partly covers the PM Office."]},
+      {"screen": "Task modal", "issues": ["The interaction prompt ('Press E — …') still shows under the dimmed backdrop below the modal. This is cosmetic.", "Restore Power: clicking a wrong right-hand terminal only shakes it and plays a sound; no text message appears (File Sort and Approve the Bill do show text). Consider a short 'Wrong terminal' hint for accessibility."]},
+      {"screen": "Results table", "issues": ["A player ejected by vote shows the status 'Eliminated', the same as a player who was killed. A separate 'Ejected' status would be clearer."]}
+    ]
+  },
+  "test_report_links": ["/app/e2e/t1-minigames.cjs", "/app/e2e/t1-mute-reload.cjs"],
+  "action_items": [
+    "Optional: add MuteToggle to Landing and Lobby so the saved sound setting can be seen and changed outside a match.",
+    "Optional: make the left HUD task panel collapsible or translucent so the Finance Ministry room isn't hidden at 1280x800 and on tablet."
+  ],
+  "critical_code_review_comments": [
+    "Match.ts ~L280: completing any RESTORE_POWER station task during a Power Cut also restores power. This is allowed by spec §6.2 note 25, but it means any of the three wire stations works as the repair. Confirm this is intended.",
+    "RestorePower.tsx checks labels on the client, so a wrong pair is never sent to the server and the server's wrong-pair path is never used from the UI. That is fine, since the server still validates.",
+    "Players use a hitbox about 10px wide: walking down column 24 in the Lok Sabha with x <= ~777 snags on the treasury bench (cols 21-23). This is expected collision, not a bug, but corridors next to furniture are tight."
+  ],
+  "updated_files": ["/app/e2e/t1-minigames.cjs (new)", "/app/e2e/t1-mute-reload.cjs (new)"],
+  "success_rate": {"backend": "n/a (not requested)", "frontend": "95% (19/20 checks pass in the final run; the mute-after-reload check fails only because the toggle isn't on Landing)"},
+  "seed_data_creation": "None. Rooms are in memory and created and abandoned by the test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: node e2e/t1-minigames.cjs <baseUrl> (about 100s; uses BFS over a copy of the parliament grid and walks with the keyboard; intermediate waypoint range must stay at 4px or players snag on benches). Run node e2e/t1-mute-reload.cjs for mute, reload mid-match (player goes back to Landing and shows as 'left' to others) and the far 'No target in range' reason. In the first preview run, the approve-bill, chat and far-reason failures were test-harness issues, now fixed: dead players get chat-dead-notice instead of chat-messages by design, and spawns (17,7)/(18,7) are adjacent, so the far check is only valid when no MP is next to the deep player. Not covered: 10-player rooms, HOLD fallback (all MINIGAME_ENABLED are true), emergency button UI cooldown text, a second Power Cut after the 30s sabotage cooldown, and the 15s natural timeout restore."
+}

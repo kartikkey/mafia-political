@@ -1,20 +1,9 @@
 {
   "name": "netagiri",
   "private": true,
-  "version": "0.1.0",
-  "description": "NETAGIRI: Parliament Under Siege — multiplayer social-deduction browser game",
-  "workspaces": ["shared", "server", "client"],
-  "scripts": {
-    "dev": "concurrently -n server,client -c yellow,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
-    "build": "npm run build -w client",
-    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client",
-    "test": "vitest run",
-    "start": "npm run start -w server"
-  },
+  "version": "0.2.0",
+  "description": "NETAGIRI: Parliament Under Siege — e2e test runner (app lives in backend/ and frontend/)",
   "devDependencies": {
-    "concurrently": "^9.1.2",
-    "typescript": "^5.6.3",
-    "vitest": "^2.1.8"
-  },
-  "engines": { "node": ">=20" }
+    "playwright": "1.57"
+  }
 }
