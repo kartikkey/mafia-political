@@ -27,6 +27,14 @@ export const addBots = createAsyncThunk('lobby/addBots', async (_: void, { rejec
   }
 })
 
+export const removeBot = createAsyncThunk('lobby/removeBot', async (playerId: string, { rejectWithValue }) => {
+  try {
+    await emitWithAck('REMOVE_BOT', { playerId })
+  } catch (e: any) {
+    return rejectWithValue(e.message ?? 'Could not remove computer player')
+  }
+})
+
 export const removeBots = createAsyncThunk('lobby/removeBots', async (_: void, { rejectWithValue }) => {
   try {
     await emitWithAck('REMOVE_BOTS')

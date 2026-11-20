@@ -31,3 +31,5 @@
 
   &__code { display: flex; gap: var(--s-2); input { flex: 1; text-transform: uppercase; letter-spacing: 0.2em; } }
 }
+
+.join__invite { margin: 0; padding: var(--s-2); border: 2px dashed var(--c-accent); color: var(--c-accent); text-align: center; }

@@ -94,6 +94,8 @@ export interface ClientToServerEvents {
   /** Host: fill empty seats with computer players up to the minimum. */
   ADD_BOTS: (ack: Ack) => void
   REMOVE_BOTS: (ack: Ack) => void
+  /** Host: remove one computer player from the lobby. */
+  REMOVE_BOT: (p: { playerId: string }, ack: Ack) => void
 }
 
 export interface ServerToClientEvents {

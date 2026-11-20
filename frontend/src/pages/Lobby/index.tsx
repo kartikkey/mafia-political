@@ -3,7 +3,8 @@ import { useMatchNavigation } from 'common/hooks/useMatchNavigation'
 import PixelButton from 'common/components/PixelButton'
 import MuteToggle from 'common/components/MuteToggle'
 import PixelPanel from 'common/components/PixelPanel'
-import { addBots, removeBots, startGame } from 'slices/lobby/thunk'
+import { addBots, removeBot, removeBots, startGame } from 'slices/lobby/thunk'
+import InviteLink from './components/InviteLink'
 import { leaveRoom } from 'slices/join/thunk'
 import RoomCodeCard from './components/RoomCodeCard'
 import PlayerRoster from './components/PlayerRoster'
@@ -27,11 +28,12 @@ export default function Lobby() {
       <h1>NETAGIRI</h1>
       <div className="lobby__grid">
         <PixelPanel title={`Members of Parliament (${players.length}/${lobby?.maxPlayers ?? 10})`}>
-          <PlayerRoster players={players} meId={playerId} maxPlayers={lobby?.maxPlayers ?? 10} />
+          <PlayerRoster players={players} meId={playerId} maxPlayers={lobby?.maxPlayers ?? 10} onRemoveBot={isHost ? (id) => dispatch(removeBot(id)) : undefined} />
         </PixelPanel>
 
         <PixelPanel title="Session">
           {roomCode && <RoomCodeCard code={roomCode} />}
+          {roomCode && <InviteLink code={roomCode} />}
           <p className="muted">
             {enough ? 'Quorum reached.' : `Need ${min - players.length} more MP${min - players.length === 1 ? '' : 's'} (min ${min}).`}
           </p>

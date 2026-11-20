@@ -197,6 +197,21 @@ def remove_bots(sid, _p):
     return ok()
 
 
+@on("REMOVE_BOT")
+def remove_bot(sid, p):
+    ref = rooms.by_socket(sid)
+    if not ref or ref[0].state != "WAITING":
+        return fail("Not in a lobby")
+    if not ref[1].is_host:
+        return fail("Only the host can remove computer players")
+    target = ref[0].players.get(str(p.get("playerId") or ""))
+    if not target or not target.is_bot:
+        return fail("No such computer player")
+    rooms.remove_bot(ref[0], target.id)
+    push_lobby(ref[0])
+    return ok()
+
+
 @on("RETURN_TO_LOBBY")
 def return_to_lobby(sid, _p):
     ref = rooms.by_socket(sid)

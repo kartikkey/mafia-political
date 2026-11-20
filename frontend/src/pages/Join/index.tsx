@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from 'common/hooks/redux'
 import PixelButton from 'common/components/PixelButton'
 import MuteToggle from 'common/components/MuteToggle'
@@ -20,7 +20,9 @@ export default function Join() {
 
   const [name, setName] = useState(() => load(STORAGE_KEYS.name) ?? '')
   const [avatar, setAvatar] = useState(() => Number(load(STORAGE_KEYS.avatar) ?? 0) % AVATARS.length)
-  const [code, setCode] = useState('')
+  const [params] = useSearchParams()
+  const invited = (params.get('room') ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)
+  const [code, setCode] = useState(invited)
 
   useEffect(() => {
     if (roomCode) navigate(PATHS.lobby(roomCode))
@@ -52,9 +54,10 @@ export default function Join() {
       </header>
 
       <PixelPanel title="Enter Parliament" className="join__panel">
+        {invited.length === 5 && <p className="join__invite" data-testid="join-invite-note">You're invited to room <strong>{invited}</strong></p>}
         <label className="join__field">
           <span>Your name</span>
-          <input value={name} maxLength={16} onChange={(e) => { setName(e.target.value); dispatch(clearJoinError()) }} placeholder="Hon. Member" />
+          <input data-testid="join-name-input" value={name} maxLength={16} onChange={(e) => { setName(e.target.value); dispatch(clearJoinError()) }} placeholder="Hon. Member" />
         </label>
 
         <div className="join__avatars" role="radiogroup" aria-label="Choose your politician">
@@ -65,19 +68,19 @@ export default function Join() {
           ))}
         </div>
 
-        <PixelButton variant="primary" size="lg" disabled={submitLoading || name.trim().length < 2 || !connected} onClick={onCreate}>
+        <PixelButton variant="primary" size="lg" disabled={submitLoading || name.trim().length < 2 || !connected} onClick={onCreate} data-testid="create-room-btn">
           Create Room
         </PixelButton>
 
         <form className="join__code" onSubmit={onJoin}>
-          <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ROOM CODE" maxLength={5} aria-label="Room code" />
-          <PixelButton variant="green" type="submit" disabled={submitLoading || code.length < 5 || name.trim().length < 2 || !connected}>
+          <input data-testid="join-room-code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ROOM CODE" maxLength={5} aria-label="Room code" />
+          <PixelButton data-testid="join-room-btn" variant="green" type="submit" disabled={submitLoading || code.length < 5 || name.trim().length < 2 || !connected}>
             Join
           </PixelButton>
         </form>
 
         {!connected && <p className="muted">Connecting to server…</p>}
-        {error && <p className="error-text" role="alert">{error}</p>}
+        {error && <p className="error-text" role="alert" data-testid="join-error">{error}</p>}
       </PixelPanel>
     </div>
   )

@@ -35,4 +35,26 @@
     &--empty { color: var(--c-ink-muted); justify-content: center; min-height: 52px; border-style: dashed; }
   }
   &__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &__remove {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    background: transparent;
+    color: var(--c-ink-muted);
+    border: 2px solid #000;
+    cursor: pointer;
+    transition: background-color 120ms, color 120ms, transform 120ms;
+    &:hover, &:focus-visible { background: #c0392b; color: #fff; transform: translateY(-1px); }
+  }
+}
+
+.invite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  &__actions { display: flex; gap: var(--s-2); flex-wrap: wrap; }
+  .px-btn { display: inline-flex; align-items: center; gap: 6px; }
+  &__box { width: 100%; font-size: 12px; padding: var(--s-2); border: 2px solid #000; background: var(--c-primary); color: var(--c-ink, #fff); }
 }
